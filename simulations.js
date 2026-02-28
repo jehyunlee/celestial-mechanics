@@ -1705,18 +1705,18 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       ctx.fillStyle = '#fff8d0';
       ctx.beginPath(); ctx.arc(sunArcX, sunArcY, 8, 0, TAU); ctx.fill();
 
-      // Elevation angle arc
+      // Elevation angle arc (from left horizon upward)
       ctx.strokeStyle = '#ffdd66';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(arcCx, groundY, 40, Math.PI, Math.PI - elevRad, true);
+      ctx.arc(arcCx, groundY, 40, Math.PI, Math.PI + elevRad, true);
       ctx.stroke();
-      // Angle label
-      const labelAngle = Math.PI - elevRad / 2;
+      // Angle label (midpoint of arc, above ground)
+      const labelAngle = Math.PI + elevRad / 2;
       ctx.fillStyle = '#ffdd66';
       ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('α=' + elevClamped.toFixed(1) + '°', arcCx + 55 * Math.cos(labelAngle), groundY + 55 * Math.sin(labelAngle) - 2);
+      ctx.fillText('α=' + elevClamped.toFixed(1) + '°', arcCx + 55 * Math.cos(labelAngle), groundY + 55 * Math.sin(labelAngle));
 
       // Line from ground to sun
       ctx.strokeStyle = 'rgba(255,220,100,0.6)';
@@ -1728,54 +1728,65 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 
       // ── Beam width diagram ──
       // Show how same-width beam covers more ground at lower angle
-      const beamW = 50; // beam width in pixels
-      const beamX = RX + RW * 0.73;
-      const beamTopY = groundY - 80;
-
-      // Incoming beam (parallel, at elevation angle)
+      // Rays come from the LEFT (sun side) going down-right to ground
+      const beamW = 50; // beam width in pixels (perpendicular to ray)
       const sinE = Math.sin(elevRad);
       const cosE = Math.cos(elevRad);
       const groundCoverage = beamW / sinE;
-      const maxCoverage = RW * 0.45;
+      const maxCoverage = RW * 0.42;
       const dispCoverage = Math.min(groundCoverage, maxCoverage);
       const dispBeamW = dispCoverage * sinE;
 
-      // Beam left and right edges
-      const bCx = beamX;
-      const bCy = groundY - 50;
-      const dx = cosE;
-      const dy = -sinE;
-      const perp_dx = sinE;
-      const perp_dy = cosE;
+      // Ray direction: from upper-left (sun) to lower-right (ground)
+      const rdx = cosE;   // rightward
+      const rdy = sinE;   // downward (canvas y-down)
+      // Perpendicular to ray (for beam width)
+      const pdx = -sinE;  // beam width direction
+      const pdy = cosE;
 
-      // Two parallel rays hitting the ground
-      const rayLen = 70;
+      // Ground hit point (center of beam on ground)
+      const hitX = RX + RW * 0.55;
+      const hitY = groundY;
+      const rayLen = 80;
       const halfW = dispBeamW / 2;
 
       ctx.strokeStyle = 'rgba(255,220,100,0.7)';
       ctx.lineWidth = 1.5;
-      // Left ray
-      const lx1 = bCx - perp_dx * halfW + dx * rayLen;
-      const ly1 = bCy - perp_dy * halfW + dy * rayLen;
-      const lx2 = bCx - perp_dx * halfW - dx * rayLen * 0.3;
-      const ly2 = bCy - perp_dy * halfW - dy * rayLen * 0.3;
-      ctx.beginPath(); ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2); ctx.stroke();
-      // Right ray
-      const rx1 = bCx + perp_dx * halfW + dx * rayLen;
-      const ry1 = bCy + perp_dy * halfW + dy * rayLen;
-      const rx2 = bCx + perp_dx * halfW - dx * rayLen * 0.3;
-      const ry2 = bCy + perp_dy * halfW - dy * rayLen * 0.3;
-      ctx.beginPath(); ctx.moveTo(rx1, ry1); ctx.lineTo(rx2, ry2); ctx.stroke();
+      // Ray 1 (upper edge of beam)
+      const r1_gx = hitX - pdx * halfW;  // ground hit point
+      const r1_gy = hitY - pdy * halfW;
+      const r1_sx = r1_gx - rdx * rayLen; // source end (toward sun)
+      const r1_sy = r1_gy - rdy * rayLen;
+      ctx.beginPath(); ctx.moveTo(r1_sx, r1_sy); ctx.lineTo(r1_gx, r1_gy); ctx.stroke();
+      // Arrowhead
+      ctx.beginPath();
+      ctx.moveTo(r1_gx, r1_gy);
+      ctx.lineTo(r1_gx - 7 * rdx - 3 * pdx, r1_gy - 7 * rdy - 3 * pdy);
+      ctx.moveTo(r1_gx, r1_gy);
+      ctx.lineTo(r1_gx - 7 * rdx + 3 * pdx, r1_gy - 7 * rdy + 3 * pdy);
+      ctx.stroke();
+      // Ray 2 (lower edge of beam)
+      const r2_gx = hitX + pdx * halfW;
+      const r2_gy = hitY + pdy * halfW;
+      const r2_sx = r2_gx - rdx * rayLen;
+      const r2_sy = r2_gy - rdy * rayLen;
+      ctx.beginPath(); ctx.moveTo(r2_sx, r2_sy); ctx.lineTo(r2_gx, r2_gy); ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(r2_gx, r2_gy);
+      ctx.lineTo(r2_gx - 7 * rdx - 3 * pdx, r2_gy - 7 * rdy - 3 * pdy);
+      ctx.moveTo(r2_gx, r2_gy);
+      ctx.lineTo(r2_gx - 7 * rdx + 3 * pdx, r2_gy - 7 * rdy + 3 * pdy);
+      ctx.stroke();
 
-      // Beam width label
+      // Beam width label (perpendicular to rays, at source end)
       ctx.fillStyle = 'rgba(255,220,100,0.6)';
       ctx.font = '10px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('빔 폭 1m', (lx1 + rx1) / 2, (ly1 + ry1) / 2 - 8);
+      ctx.fillText('빔 폭 1m', (r1_sx + r2_sx) / 2 - 10, (r1_sy + r2_sy) / 2 - 8);
 
       // Ground coverage indicator
-      const gcLeft = bCx - dispCoverage / 2;
-      const gcRight = bCx + dispCoverage / 2;
+      const gcLeft = hitX - dispCoverage / 2;
+      const gcRight = hitX + dispCoverage / 2;
       ctx.strokeStyle = '#ff8844';
       ctx.lineWidth = 2;
       ctx.beginPath();
@@ -1800,8 +1811,8 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       // Fill beam area with translucent yellow
       ctx.fillStyle = 'rgba(255,220,100,0.08)';
       ctx.beginPath();
-      ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2);
-      ctx.lineTo(rx2, ry2); ctx.lineTo(rx1, ry1);
+      ctx.moveTo(r1_sx, r1_sy); ctx.lineTo(r1_gx, r1_gy);
+      ctx.lineTo(r2_gx, r2_gy); ctx.lineTo(r2_sx, r2_sy);
       ctx.closePath();
       ctx.fill();
     } else {
