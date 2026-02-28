@@ -69,6 +69,7 @@ toc_items = [
     ]),
     ('ch4', '4. 연중 일사량 변화', [
         ('sec4-1', '4.1 지축 경사와 계절'),
+        ('sec4-1b', '4.1b 지축 경사 시뮬레이션'),
         ('sec4-2', '4.2 일사량 시뮬레이션'),
     ]),
     ('ch5', '5. 달의 위상과 운동', [
@@ -319,6 +320,27 @@ ch4 = '''<div class="chapter" id="ch4">
 <p><strong>하지(6월 21일경)</strong>: 낮 길이 ~14.9시간, 최대 고도 ~76°, 최대 일사량 ~930 W/m²</p>
 <p><strong>춘분/추분</strong>: 낮 길이 ~12시간, 최대 고도 ~52.5°, 최대 일사량 ~750 W/m²</p>
 <p><strong>동지(12월 22일경)</strong>: 낮 길이 ~9.5시간, 최대 고도 ~29°, 최대 일사량 ~430 W/m²</p>
+</div>
+
+<h2 class="section-title" id="sec4-1b">4.1b 지축 경사와 일사량 시뮬레이션</h2>
+
+<p>아래 시뮬레이션에서 <strong>위도</strong>와 <strong>날짜</strong>를 조절하며 태양 고도각과 일사량의 변화를 직관적으로 확인할 수 있습니다. 왼쪽 패널은 지구 단면에서 지축 경사와 선택한 위도(붉은 점)를 보여주고, 오른쪽 패널은 해당 위도의 지표면에서 본 태양 남중 고도와 빔 조사 면적을 시각화합니다.</p>
+
+<div class="sim-container">
+  <canvas id="axialTiltCanvas" width="700" height="360"></canvas>
+  <div class="sim-controls">
+    <label>위도: <input type="range" id="tiltLatSlider" min="-66.5" max="90" step="0.5" value="37.5"> <span id="tiltLatVal">37.5°N</span></label>
+    <label>날짜: <input type="range" id="tiltDaySlider" min="0" max="364" step="1" value="172"> <span id="tiltDayVal">6월 22일</span></label>
+  </div>
+  <div class="sim-info" id="tiltInfo"></div>
+</div>
+
+<div class="info-box">
+<div class="box-title">[시뮬레이션 관찰 포인트]</div>
+<p><strong>서울(37.5°N) 하지</strong>: α ≈ 76°, 빔 조사 면적 ≈ 1.03m → 높은 일사량</p>
+<p><strong>서울(37.5°N) 동지</strong>: α ≈ 29°, 빔 조사 면적 ≈ 2.06m → 낮은 일사량</p>
+<p><strong>적도(0°) 춘분</strong>: α = 90°, 빔 조사 면적 = 1.00m → 최대 일사량</p>
+<p>위도를 -66.5°(남극권) 이하로 낮추면 동지 때 극야(24시간 밤)를, 66.5°N 이상에서는 하지 때 백야(24시간 낮)를 확인할 수 있습니다.</p>
 </div>
 
 <h2 class="section-title" id="sec4-2">4.2 연중 일사량 시뮬레이션: 서울 · 자카르타 · 런던</h2>

@@ -337,15 +337,15 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 
     // Season labels
     ctx.fillStyle = '#556'; ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'center';
-    ctx.fillText('동지', lCx, lCy - orbitR - 6);
-    ctx.fillText('하지', lCx, lCy + orbitR + 12);
+    ctx.fillText('하지', lCx, lCy - orbitR - 6);
+    ctx.fillText('동지', lCx, lCy + orbitR + 12);
     ctx.fillText('춘분', lCx + orbitR + 6, lCy);
     ctx.fillText('추분', lCx - orbitR - 6, lCy);
 
     // Earth position (CCW as seen from North Pole)
     const angle = TAU * (currentDay - 80) / 365;
     const ex = lCx + orbitR * Math.cos(angle);
-    const ey = lCy + orbitR * Math.sin(angle);
+    const ey = lCy - orbitR * Math.sin(angle);
     ctx.fillStyle = '#4488cc';
     ctx.beginPath(); ctx.arc(ex, ey, 6, 0, TAU); ctx.fill();
 
@@ -1377,6 +1377,457 @@ function lerp(a, b, t) { return a + (b - a) * t; }
   gCtx.fillStyle = '#0a0e27'; gCtx.fillRect(0, 0, gW, gH);
   hCtx.fillStyle = '#0a0e27'; hCtx.fillRect(0, 0, hW, hH);
   animate();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 8. Axial Tilt & Seasons Simulation
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('axialTiltCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const latSlider = document.getElementById('tiltLatSlider');
+  const daySlider = document.getElementById('tiltDaySlider');
+  const latVal = document.getElementById('tiltLatVal');
+  const dayVal = document.getElementById('tiltDayVal');
+  const info = document.getElementById('tiltInfo');
+
+  const OBLIQUITY = 23.44;
+  const S0 = 1361;
+
+  // ── Physics helpers ──
+  function solarDeclination(dayOfYear) {
+    return OBLIQUITY * Math.sin((dayOfYear - 81) * TAU / 365);
+  }
+  function maxElevation(lat, decl) {
+    return 90 - Math.abs(lat - decl);
+  }
+  function dayLength(lat, decl) {
+    const latR = lat * DEG, declR = decl * DEG;
+    const cosHA = -Math.tan(latR) * Math.tan(declR);
+    if (cosHA <= -1) return 24;
+    if (cosHA >= 1) return 0;
+    return 2 * Math.acos(cosHA) / (15 * DEG) ;
+  }
+  function airMass(alpha) {
+    if (alpha <= 0) return Infinity;
+    return 1 / Math.sin(alpha * DEG);
+  }
+  function irradiance(alpha) {
+    if (alpha <= 0) return 0;
+    const am = airMass(alpha);
+    return S0 * Math.sin(alpha * DEG) * Math.pow(0.7, Math.pow(am, 0.678));
+  }
+
+  function dayName(d) {
+    const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const daysInMonth = [31,28,31,30,31,30,31,31,30,31,30,31];
+    let rem = d;
+    for (let m = 0; m < 12; m++) {
+      if (rem < daysInMonth[m]) return months[m] + ' ' + (rem + 1) + '일';
+      rem -= daysInMonth[m];
+    }
+    return '12월 31일';
+  }
+
+  function draw() {
+    const lat = parseFloat(latSlider.value);
+    const day = parseInt(daySlider.value);
+    latVal.textContent = (lat >= 0 ? lat.toFixed(1) + '°N' : (-lat).toFixed(1) + '°S');
+    dayVal.textContent = dayName(day);
+
+    const decl = solarDeclination(day);
+    const elev = maxElevation(lat, decl);
+    const elevClamped = Math.max(elev, 0);
+    const dl = dayLength(lat, decl);
+    const irr = irradiance(elevClamped);
+    const am = elevClamped > 0 ? airMass(elevClamped) : Infinity;
+
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0e27';
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.35})`;
+      ctx.beginPath();
+      ctx.arc((i * 137.5) % W, (i * 97.3) % H, 0.4 + Math.random() * 0.6, 0, TAU);
+      ctx.fill();
+    }
+
+    // ── Left panel: Earth cross-section ──
+    const LW = W * 0.4;
+    const eCx = LW * 0.55, eCy = H * 0.5;
+    const eR = Math.min(LW, H) * 0.32;
+    const tiltRad = OBLIQUITY * DEG;
+    // Subsolar latitude angle (declination) determines where sunlight hits equator
+    const declRad = decl * DEG;
+
+    // Sunlight from left (parallel rays)
+    ctx.strokeStyle = 'rgba(255,220,100,0.25)';
+    ctx.lineWidth = 1;
+    for (let i = -6; i <= 6; i++) {
+      const yy = eCy + i * eR * 0.28;
+      ctx.beginPath();
+      ctx.moveTo(0, yy);
+      ctx.lineTo(eCx - eR - 5, yy);
+      ctx.stroke();
+      // Arrow
+      ctx.beginPath();
+      ctx.moveTo(eCx - eR - 5, yy);
+      ctx.lineTo(eCx - eR - 12, yy - 3);
+      ctx.moveTo(eCx - eR - 5, yy);
+      ctx.lineTo(eCx - eR - 12, yy + 3);
+      ctx.stroke();
+    }
+
+    // Sun glow (left edge)
+    const sunGrad = ctx.createRadialGradient(-10, eCy, 5, -10, eCy, 60);
+    sunGrad.addColorStop(0, 'rgba(255,220,100,0.4)');
+    sunGrad.addColorStop(1, 'rgba(255,220,100,0)');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath(); ctx.arc(-10, eCy, 60, 0, TAU); ctx.fill();
+
+    // Earth circle
+    const earthGrad = ctx.createRadialGradient(eCx - eR * 0.2, eCy - eR * 0.2, eR * 0.1, eCx, eCy, eR);
+    earthGrad.addColorStop(0, '#4488cc');
+    earthGrad.addColorStop(0.7, '#2266aa');
+    earthGrad.addColorStop(1, '#113355');
+    ctx.fillStyle = earthGrad;
+    ctx.beginPath(); ctx.arc(eCx, eCy, eR, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#5599dd';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(eCx, eCy, eR, 0, TAU); ctx.stroke();
+
+    // Night side (right half, since sunlight from left)
+    ctx.save();
+    ctx.beginPath(); ctx.arc(eCx, eCy, eR, 0, TAU); ctx.clip();
+    ctx.fillStyle = 'rgba(0,0,20,0.45)';
+    ctx.beginPath();
+    ctx.moveTo(eCx, eCy - eR);
+    ctx.quadraticCurveTo(eCx + eR * 0.3, eCy, eCx, eCy + eR);
+    ctx.lineTo(eCx + eR, eCy + eR);
+    ctx.lineTo(eCx + eR, eCy - eR);
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+
+    // Axial tilt line
+    ctx.save();
+    ctx.translate(eCx, eCy);
+    ctx.rotate(-tiltRad); // tilt axis
+    ctx.strokeStyle = '#aaddff';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.beginPath();
+    ctx.moveTo(0, -eR - 18);
+    ctx.lineTo(0, eR + 18);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // N/S labels
+    ctx.fillStyle = '#aaddff';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('N', 0, -eR - 22);
+    ctx.fillText('S', 0, eR + 30);
+    ctx.restore();
+
+    // Equator line
+    ctx.save();
+    ctx.translate(eCx, eCy);
+    ctx.rotate(-tiltRad);
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(-eR, 0);
+    ctx.lineTo(eR, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.restore();
+
+    // Selected latitude point on the Earth
+    // In the tilted coordinate system, latitude phi is measured from equator along the axis
+    const latRad = lat * DEG;
+    ctx.save();
+    ctx.translate(eCx, eCy);
+    ctx.rotate(-tiltRad);
+    // Position on Earth surface (sunlit side = left, facing sun)
+    // Show on the left side (facing the sun)
+    const ptX = -eR * Math.cos(latRad);
+    const ptY = -eR * Math.sin(latRad);
+    // Transform back to get canvas coords
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath(); ctx.arc(ptX, ptY, 5, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#ffaaaa';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(ptX, ptY, 5, 0, TAU); ctx.stroke();
+
+    // Normal vector at this point (outward from center)
+    const nLen = 35;
+    const nx = -Math.cos(latRad);
+    const ny = -Math.sin(latRad);
+    ctx.strokeStyle = '#ff6666';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(ptX, ptY);
+    ctx.lineTo(ptX + nx * nLen, ptY + ny * nLen);
+    ctx.stroke();
+    // Arrow head
+    const aLen = 7;
+    const nAngle = Math.atan2(ny, nx);
+    ctx.beginPath();
+    ctx.moveTo(ptX + nx * nLen, ptY + ny * nLen);
+    ctx.lineTo(ptX + nx * nLen - aLen * Math.cos(nAngle - 0.4), ptY + ny * nLen - aLen * Math.sin(nAngle - 0.4));
+    ctx.moveTo(ptX + nx * nLen, ptY + ny * nLen);
+    ctx.lineTo(ptX + nx * nLen - aLen * Math.cos(nAngle + 0.4), ptY + ny * nLen - aLen * Math.sin(nAngle + 0.4));
+    ctx.stroke();
+
+    // Latitude label
+    ctx.fillStyle = '#ffcccc';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'left';
+    const labelText = lat >= 0 ? lat.toFixed(1) + '°N' : (-lat).toFixed(1) + '°S';
+    ctx.fillText(labelText, ptX + nx * nLen + 5, ptY + ny * nLen + 3);
+    ctx.restore();
+
+    // Angle between normal and sunlight direction
+    // Sunlight goes right (+x in canvas), in tilted frame it goes at angle tiltRad
+    // Normal direction in canvas frame
+    const cosT = Math.cos(tiltRad), sinT = Math.sin(tiltRad);
+    const nxCanvas = nx * cosT - ny * (-sinT);
+    const nyCanvas = nx * (-sinT) + ny * (-cosT);
+    // Sunlight direction in canvas: (1, 0) pointing right
+    // But solar declination shifts the effective sun direction
+    // The angle between normal and sunlight = 90 - elevation
+    // We already computed elevation, so just show it
+
+    // Panel title
+    ctx.fillStyle = '#88bbee';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('지구 단면 (측면)', eCx, 18);
+
+    // Declination indicator - where the subsolar point is
+    ctx.save();
+    ctx.translate(eCx, eCy);
+    ctx.rotate(-tiltRad);
+    // Subsolar latitude line
+    const subY = -eR * Math.sin(declRad);
+    ctx.strokeStyle = 'rgba(255,220,100,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(-eR, subY);
+    ctx.lineTo(eR, subY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(255,220,100,0.7)';
+    ctx.font = '9px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('δ=' + decl.toFixed(1) + '°', eR - 2, subY - 4);
+    ctx.restore();
+
+    // ── Right panel: Surface view ──
+    const RX = LW + 20;
+    const RW = W - RX - 10;
+    const groundY = H * 0.72;
+    const arcCx = RX + RW * 0.5;
+    const arcR = Math.min(RW * 0.4, (groundY - 30) * 0.85);
+
+    // Panel title
+    ctx.fillStyle = '#88bbee';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('지표면에서 본 태양 (남중 시)', arcCx, 18);
+
+    // Ground
+    ctx.fillStyle = '#2a4020';
+    ctx.fillRect(RX, groundY, RW, H - groundY);
+    ctx.strokeStyle = '#5a8040';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(RX, groundY);
+    ctx.lineTo(RX + RW, groundY);
+    ctx.stroke();
+
+    // Sky arc (semicircle)
+    ctx.strokeStyle = 'rgba(100,150,200,0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.arc(arcCx, groundY, arcR, Math.PI, 0);
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Horizon labels
+    ctx.fillStyle = 'rgba(150,180,200,0.5)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('E', RX + 15, groundY + 14);
+    ctx.fillText('W', RX + RW - 15, groundY + 14);
+    ctx.fillText('0°', RX + 8, groundY - 4);
+    ctx.fillText('90°', arcCx, groundY - arcR - 4);
+
+    // Elevation angle lines (reference)
+    for (let a = 30; a <= 60; a += 30) {
+      const aR = a * DEG;
+      const rx = arcCx + arcR * Math.cos(Math.PI - aR);
+      const ry = groundY - arcR * Math.sin(aR);
+      ctx.strokeStyle = 'rgba(100,150,200,0.15)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([2, 4]);
+      ctx.beginPath();
+      ctx.moveTo(arcCx, groundY);
+      ctx.lineTo(rx, ry);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = 'rgba(150,180,200,0.4)';
+      ctx.font = '9px sans-serif';
+      ctx.fillText(a + '°', rx + (a < 60 ? -12 : 8), ry + (a < 60 ? -2 : 8));
+    }
+
+    if (elevClamped > 0) {
+      const elevRad = elevClamped * DEG;
+
+      // Sun position on arc
+      const sunArcX = arcCx - arcR * Math.cos(elevRad);
+      const sunArcY = groundY - arcR * Math.sin(elevRad);
+
+      // Sun glow
+      const sGrad = ctx.createRadialGradient(sunArcX, sunArcY, 3, sunArcX, sunArcY, 22);
+      sGrad.addColorStop(0, 'rgba(255,240,150,0.9)');
+      sGrad.addColorStop(0.5, 'rgba(255,200,50,0.4)');
+      sGrad.addColorStop(1, 'rgba(255,200,50,0)');
+      ctx.fillStyle = sGrad;
+      ctx.beginPath(); ctx.arc(sunArcX, sunArcY, 22, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff8d0';
+      ctx.beginPath(); ctx.arc(sunArcX, sunArcY, 8, 0, TAU); ctx.fill();
+
+      // Elevation angle arc
+      ctx.strokeStyle = '#ffdd66';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(arcCx, groundY, 40, Math.PI, Math.PI - elevRad, true);
+      ctx.stroke();
+      // Angle label
+      const labelAngle = Math.PI - elevRad / 2;
+      ctx.fillStyle = '#ffdd66';
+      ctx.font = 'bold 12px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('α=' + elevClamped.toFixed(1) + '°', arcCx + 55 * Math.cos(labelAngle), groundY + 55 * Math.sin(labelAngle) - 2);
+
+      // Line from ground to sun
+      ctx.strokeStyle = 'rgba(255,220,100,0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(arcCx, groundY);
+      ctx.lineTo(sunArcX, sunArcY);
+      ctx.stroke();
+
+      // ── Beam width diagram ──
+      // Show how same-width beam covers more ground at lower angle
+      const beamW = 50; // beam width in pixels
+      const beamX = RX + RW * 0.73;
+      const beamTopY = groundY - 80;
+
+      // Incoming beam (parallel, at elevation angle)
+      const sinE = Math.sin(elevRad);
+      const cosE = Math.cos(elevRad);
+      const groundCoverage = beamW / sinE;
+      const maxCoverage = RW * 0.45;
+      const dispCoverage = Math.min(groundCoverage, maxCoverage);
+      const dispBeamW = dispCoverage * sinE;
+
+      // Beam left and right edges
+      const bCx = beamX;
+      const bCy = groundY - 50;
+      const dx = cosE;
+      const dy = -sinE;
+      const perp_dx = sinE;
+      const perp_dy = cosE;
+
+      // Two parallel rays hitting the ground
+      const rayLen = 70;
+      const halfW = dispBeamW / 2;
+
+      ctx.strokeStyle = 'rgba(255,220,100,0.7)';
+      ctx.lineWidth = 1.5;
+      // Left ray
+      const lx1 = bCx - perp_dx * halfW + dx * rayLen;
+      const ly1 = bCy - perp_dy * halfW + dy * rayLen;
+      const lx2 = bCx - perp_dx * halfW - dx * rayLen * 0.3;
+      const ly2 = bCy - perp_dy * halfW - dy * rayLen * 0.3;
+      ctx.beginPath(); ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2); ctx.stroke();
+      // Right ray
+      const rx1 = bCx + perp_dx * halfW + dx * rayLen;
+      const ry1 = bCy + perp_dy * halfW + dy * rayLen;
+      const rx2 = bCx + perp_dx * halfW - dx * rayLen * 0.3;
+      const ry2 = bCy + perp_dy * halfW - dy * rayLen * 0.3;
+      ctx.beginPath(); ctx.moveTo(rx1, ry1); ctx.lineTo(rx2, ry2); ctx.stroke();
+
+      // Beam width label
+      ctx.fillStyle = 'rgba(255,220,100,0.6)';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('빔 폭 1m', (lx1 + rx1) / 2, (ly1 + ry1) / 2 - 8);
+
+      // Ground coverage indicator
+      const gcLeft = bCx - dispCoverage / 2;
+      const gcRight = bCx + dispCoverage / 2;
+      ctx.strokeStyle = '#ff8844';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(gcLeft, groundY);
+      ctx.lineTo(gcRight, groundY);
+      ctx.stroke();
+      // Bracket ends
+      ctx.beginPath();
+      ctx.moveTo(gcLeft, groundY - 4); ctx.lineTo(gcLeft, groundY + 6);
+      ctx.moveTo(gcRight, groundY - 4); ctx.lineTo(gcRight, groundY + 6);
+      ctx.stroke();
+
+      // Coverage label
+      const coverageVal = (1 / sinE).toFixed(2);
+      ctx.fillStyle = '#ff8844';
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('조사 면적: ' + coverageVal + 'm', (gcLeft + gcRight) / 2, groundY + 20);
+      ctx.font = '10px sans-serif';
+      ctx.fillText('(= 1/sin α)', (gcLeft + gcRight) / 2, groundY + 33);
+
+      // Fill beam area with translucent yellow
+      ctx.fillStyle = 'rgba(255,220,100,0.08)';
+      ctx.beginPath();
+      ctx.moveTo(lx1, ly1); ctx.lineTo(lx2, ly2);
+      ctx.lineTo(rx2, ry2); ctx.lineTo(rx1, ry1);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      // Sun below horizon
+      ctx.fillStyle = '#ff6666';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('태양이 뜨지 않음 (극야)', arcCx, groundY - arcR * 0.5);
+    }
+
+    // ── Info display ──
+    const elevStr = elevClamped > 0 ? elevClamped.toFixed(1) + '°' : '뜨지 않음';
+    const amStr = am < 100 ? am.toFixed(2) : '∞';
+    const irrStr = irr > 0 ? irr.toFixed(0) + ' W/m²' : '0 W/m²';
+    const dlStr = dl.toFixed(1) + '시간';
+    info.innerHTML =
+      '<strong>태양 적위(δ):</strong> ' + decl.toFixed(2) + '° | ' +
+      '<strong>최대 고도(α):</strong> ' + elevStr + ' | ' +
+      '<strong>Air Mass:</strong> ' + amStr + ' | ' +
+      '<strong>최대 일사량:</strong> ' + irrStr + ' | ' +
+      '<strong>낮 길이:</strong> ' + dlStr;
+  }
+
+  latSlider.addEventListener('input', draw);
+  daySlider.addEventListener('input', draw);
+  draw();
 })();
 
 // ═══════════════════════════════════════════════════════════
