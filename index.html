@@ -3277,7 +3277,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
   const viewAz = -135 * DEG; // scene rotation so south=upper-left
   const cosV = Math.cos(viewElev), sinV = Math.sin(viewElev);
   const cosA = Math.cos(viewAz), sinA = Math.sin(viewAz);
-  const R = Math.min(W, H) * 0.36; // sphere radius in pixels
+  const R = Math.min(W, H) * 0.40; // sphere radius in pixels (+10% zoom)
   const cx = W * 0.5, cy = H * 0.52;
 
   let hourAngle = -180; // degrees, -180=midnight, 0=noon, +180=midnight
@@ -3410,6 +3410,33 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       ctx.stroke();
     }
 
+    // ── Ground cross lines (N-S, E-W) ──
+    const groundLineLen = 0.7; // fraction of R on the ground plane
+    // N-S line
+    ctx.strokeStyle = 'rgba(180,120,100,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    const gN = project(0, 0), gS = project(180, 0);
+    // Interpolate from S to N through center (on ground)
+    const gSteps = 30;
+    for (let i = 0; i <= gSteps; i++) {
+      const t = i / gSteps;
+      const px = gS.x + (gN.x - gS.x) * t * groundLineLen + (cx - gS.x) * (1 - groundLineLen);
+      const py = gS.y + (gN.y - gS.y) * t * groundLineLen + (cy - gS.y) * (1 - groundLineLen);
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+    // E-W line
+    ctx.beginPath();
+    const gE = project(90, 0), gW = project(270, 0);
+    for (let i = 0; i <= gSteps; i++) {
+      const t = i / gSteps;
+      const px = gW.x + (gE.x - gW.x) * t * groundLineLen + (cx - gW.x) * (1 - groundLineLen);
+      const py = gW.y + (gE.y - gW.y) * t * groundLineLen + (cy - gW.y) * (1 - groundLineLen);
+      i === 0 ? ctx.moveTo(px, py) : ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
     // ── Celestial meridian arc (N-zenith-S) ──
     ctx.strokeStyle = 'rgba(150,150,200,0.2)';
     ctx.lineWidth = 1;
@@ -3534,6 +3561,74 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(sunProj.x, sunProj.y, 5, 0, TAU); ctx.stroke();
     }
+
+    // ── Gnomon (vertical pole at center) and shadow ──
+    // The gnomon is a vertical stick at the observer's position (center of horizon)
+    const poleH = 0.22; // pole height in sphere-radius units
+    const origin = project(0, 0); // project won't work for center; use cx,cy directly
+    // Pole base = center of ground plane = (cx, cy) approximately
+    // But we need the projected center. Project a point at alt=0 averaged:
+    const baseX = cx, baseY = cy;
+    // Pole top: a point straight up from center by poleH
+    // In 3D: (0, 0, poleH) → apply viewAz rotation (no effect on z-only), then tilt
+    const poleTopZ = poleH * cosV;
+    const poleTopY = poleH * sinV; // this becomes depth
+    const topX = baseX; // no x shift (pole is vertical, centered)
+    const topY = baseY - poleTopZ * R;
+
+    // Draw shadow first (behind pole)
+    if (isAbove && sunNow.altDeg > 0.5) {
+      // Shadow direction: opposite to sun's azimuth, projected on ground
+      const sunAzRad = sunNow.azDeg * DEG;
+      const sunAltRad = sunNow.altDeg * DEG;
+      const shadowLen = poleH / Math.tan(sunAltRad); // in sphere units
+      const clampedLen = Math.min(shadowLen, 0.8); // cap for very low sun
+
+      // Shadow tip in 3D ground plane: opposite to sun direction
+      // Sun at azimuth A → shadow points to azimuth A+180°
+      const shadAz = sunAzRad + Math.PI;
+      const shadX3 = clampedLen * Math.sin(shadAz); // east
+      const shadY3 = clampedLen * Math.cos(shadAz); // north
+      // Apply viewAz and viewElev rotation (z=0 for ground)
+      const sxr = shadX3 * cosA - shadY3 * sinA;
+      const syr = shadX3 * sinA + shadY3 * cosA;
+      const syr2 = syr * cosV;
+      const szr = syr * sinV;
+      const shadTipX = baseX + sxr * R;
+      const shadTipY = baseY - szr * R;
+
+      // Shadow line
+      ctx.strokeStyle = 'rgba(40,40,40,0.6)';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY);
+      ctx.lineTo(shadTipX, shadTipY);
+      ctx.stroke();
+
+      // Shadow tip dot
+      ctx.fillStyle = 'rgba(40,40,40,0.4)';
+      ctx.beginPath();
+      ctx.arc(shadTipX, shadTipY, 2.5, 0, TAU);
+      ctx.fill();
+    }
+
+    // Pole body
+    ctx.strokeStyle = '#cc8844';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(baseX, baseY);
+    ctx.lineTo(topX, topY);
+    ctx.stroke();
+    // Pole top cap
+    ctx.fillStyle = '#dd9955';
+    ctx.beginPath();
+    ctx.arc(topX, topY, 2.5, 0, TAU);
+    ctx.fill();
+    // Pole base
+    ctx.fillStyle = '#aa7733';
+    ctx.beginPath();
+    ctx.arc(baseX, baseY, 3, 0, TAU);
+    ctx.fill();
 
     // ── Meridian transit line (noon line from south horizon to zenith) ──
     const noonSun = sunPos(lat, decl, 0);
