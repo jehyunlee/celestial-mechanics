@@ -2433,16 +2433,18 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 
       // Store shadow tip in trail
       shadowTrail.push({ x: shadTipX, y: shadTipY });
-      if (shadowTrail.length > 400) shadowTrail.shift();
+      if (shadowTrail.length > 600) shadowTrail.shift();
 
-      // Draw shadow trail (analemma-like trace)
+      // Draw shadow trail (daytime segments only, broken by null markers)
       if (shadowTrail.length > 1) {
         ctx.strokeStyle = 'rgba(20,20,20,0.8)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
-        ctx.moveTo(shadowTrail[0].x, shadowTrail[0].y);
-        for (let i = 1; i < shadowTrail.length; i++) {
-          ctx.lineTo(shadowTrail[i].x, shadowTrail[i].y);
+        let penDown = false;
+        for (let i = 0; i < shadowTrail.length; i++) {
+          if (shadowTrail[i] === null) { penDown = false; continue; }
+          if (!penDown) { ctx.moveTo(shadowTrail[i].x, shadowTrail[i].y); penDown = true; }
+          else ctx.lineTo(shadowTrail[i].x, shadowTrail[i].y);
         }
         ctx.stroke();
       }
@@ -2460,6 +2462,11 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       ctx.beginPath();
       ctx.arc(shadTipX, shadTipY, 3, 0, TAU);
       ctx.fill();
+    } else {
+      // Sun below horizon: insert null break so trail segments don't connect
+      if (shadowTrail.length > 0 && shadowTrail[shadowTrail.length - 1] !== null) {
+        shadowTrail.push(null);
+      }
     }
 
     // Pole body
