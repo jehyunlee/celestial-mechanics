@@ -653,6 +653,14 @@ html = tmpl.build(
     refs_html=refs,
 )
 
+# ── Inject OG image dimensions (required for KakaoTalk) ──
+html = html.replace(
+    '<meta property="og:type" content="website" />',
+    '<meta property="og:type" content="website" />\n'
+    '  <meta property="og:image:width" content="1200" />\n'
+    '  <meta property="og:image:height" content="630" />'
+)
+
 # ── Inject KaTeX CDN ──
 html = html.replace('</head>', KATEX_HEAD + '</head>')
 
