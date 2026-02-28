@@ -527,9 +527,10 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     ctx.beginPath(); ctx.arc(topCx, topCy, moonOrbit, 0, TAU); ctx.stroke();
 
     // Moon position (phase 0 = new moon = between Earth and Sun)
-    const moonAngle = TAU * phase; // 0=new moon (left), 0.5=full moon (right)
+    // CCW orbit as seen from North Pole (+ sin for screen Y-down)
+    const moonAngle = TAU * phase;
     const moonX = topCx - moonOrbit * Math.cos(moonAngle);
-    const moonY = topCy - moonOrbit * Math.sin(moonAngle);
+    const moonY = topCy + moonOrbit * Math.sin(moonAngle);
 
     ctx.fillStyle = '#ccc';
     ctx.beginPath(); ctx.arc(moonX, moonY, 8, 0, TAU); ctx.fill();
@@ -543,9 +544,9 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     // Phase position markers
     ctx.fillStyle = '#445'; ctx.font = '9px Noto Sans KR';
     ctx.fillText('삭', topCx - moonOrbit, topCy - 12);
-    ctx.fillText('상현', topCx, topCy - moonOrbit - 8);
+    ctx.fillText('하현', topCx, topCy - moonOrbit - 8);
     ctx.fillText('망', topCx + moonOrbit, topCy - 12);
-    ctx.fillText('하현', topCx, topCy + moonOrbit + 14);
+    ctx.fillText('상현', topCx, topCy + moonOrbit + 14);
 
     // ── Right: Moon appearance from Earth ──
     const moonViewX = W * 0.78, moonViewY = H * 0.45, moonViewR = 55;
