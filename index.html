@@ -489,6 +489,7 @@ footer { background: var(--navy); color: #aac; padding: 24px 44px;
 <a class="toc-section" href="#ch6">6. 일식과 월식</a>
 <a class="toc-section" href="#sec6-1">6.1 식 현상의 원리</a>
 <a class="toc-section" href="#sec6-2">6.2 일식/월식 시뮬레이션</a>
+<a class="toc-section" href="#sec6-3">6.3 서울에서 본 일식/월식</a>
 <div class="toc-chapter">7. 천동설 vs 지동설</div>
 <a class="toc-section" href="#ch7">7. 천동설 vs 지동설</a>
 <a class="toc-section" href="#sec7-1">7.1 두 모델의 비교</a>
@@ -876,6 +877,28 @@ footer { background: var(--navy); color: #aac; padding: 24px 44px;
   </div>
   <div class="sim-info" id="eclipseInfo"></div>
 </div>
+<h2 class="section-title" id="sec6-3">6.3 서울에서 본 일식/월식</h2>
+<p>아래 시뮬레이션은 대한민국 서울(37.5°N, 127°E)에서 실제로 관측 가능한 일식/월식 이벤트를 보여줍니다. 이벤트를 선택하고 시간 슬라이더를 조절하여, 서울의 하늘에서 식이 어떻게 진행되는지 확인해보세요.</p>
+
+<div class="info-box">
+<div class="box-title">[서울에서 관측 가능한 주요 일식/월식]</div>
+<p><strong>2028년 7월 22일</strong>: 부분일식 (식분 ~0.36) — 해질녘 관측</p>
+<p><strong>2030년 6월 1일</strong>: 금환일식 (서울에서는 부분일식, 식분 ~0.89) — 오후 관측</p>
+<p><strong>2035년 9월 2일</strong>: 개기일식 — 한반도에서 관측 가능! 개기식대가 북한을 지나며, 서울에서는 식분 ~0.98의 극적인 부분일식</p>
+<p><strong>2025년 9월 7일</strong>: 개기월식 — 전 과정 관측 가능, "블러드 문"</p>
+<p><strong>2028년 12월 31일</strong>: 개기월식 — 연말 밤하늘의 장관</p>
+</div>
+
+<div class="sim-container">
+  <canvas id="eclipseObsCanvas" width="700" height="380"></canvas>
+  <div class="sim-controls">
+    <label>이벤트: <select id="eclipseEvent"></select></label>
+    <label>진행: <input type="range" id="eclipseTime" min="0" max="1" step="0.005" value="0.5"> <span id="eclTimeVal">0.5</span></label>
+  </div>
+  <div class="sim-info" id="eclipseObsInfo"></div>
+</div>
+
+<div class="arrow-summary"><span class="arrow-icon">&#9838;</span> 2035년 9월 2일의 개기일식은 1887년 이후 약 148년 만에 한반도에서 관측되는 개기일식입니다. 서울에서는 거의 개기에 가까운 극적인 부분일식을 볼 수 있습니다.</div>
 </div>
 </div>
 <div class="chapter" id="ch7">
@@ -1539,30 +1562,40 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     ctx.beginPath(); ctx.arc(moonViewX + 20, moonViewY - 20, 6, 0, TAU); ctx.fill();
     ctx.beginPath(); ctx.arc(moonViewX - 5, moonViewY + 25, 10, 0, TAU); ctx.fill();
 
-    // Shadow overlay using clipping
+    // Shadow overlay using clipping + ellipse terminator
     ctx.save();
     ctx.beginPath(); ctx.arc(moonViewX, moonViewY, moonViewR, 0, TAU); ctx.clip();
 
-    // Calculate illumination
-    const illumAngle = phase * TAU;
+    // The terminator (shadow boundary) is an ellipse when projected onto the disk.
+    // cos(phase * TAU) determines the terminator's x-extent:
+    //   phase=0 (new): cos=1 → terminator at right edge → all dark
+    //   phase=0.25 (FQ): cos=0 → terminator at center → left half dark
+    //   phase=0.5 (full): cos=-1 → terminator at left edge → no dark
+    const c = Math.cos(phase * TAU);
+    const rx = Math.max(Math.abs(c) * moonViewR, 0.1); // ellipse x-radius
+
     ctx.fillStyle = '#0a0e27';
     ctx.beginPath();
-    ctx.moveTo(moonViewX, moonViewY - moonViewR);
-    // Right half shadow or left half shadow
-    if (phase <= 0.5) {
-      // Waxing: shadow on left, shrinking
-      const bulge = Math.cos(illumAngle) * moonViewR;
-      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, true); // left arc
-      ctx.bezierCurveTo(moonViewX + bulge, moonViewY + moonViewR * 0.55,
-                         moonViewX + bulge, moonViewY - moonViewR * 0.55,
-                         moonViewX, moonViewY - moonViewR);
+
+    if (phase < 0.5) {
+      // WAXING: dark on left side, lit on right
+      // Left limb (semicircle): top → bottom through LEFT
+      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, true);
+      // Terminator (half-ellipse): bottom → top
+      //   c > 0 (crescent): terminator right of center → go CW through right
+      //   c < 0 (gibbous): terminator left of center → go CCW through left
+      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, Math.PI/2, -Math.PI/2, c < 0);
     } else {
-      // Waning: shadow on right, growing
-      const bulge = -Math.cos(illumAngle) * moonViewR;
-      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, false); // right arc
-      ctx.bezierCurveTo(moonViewX - bulge, moonViewY + moonViewR * 0.55,
-                         moonViewX - bulge, moonViewY - moonViewR * 0.55,
-                         moonViewX, moonViewY - moonViewR);
+      // WANING: dark on right side, lit on left
+      // Terminator position for waning: -r*cos(phase*TAU)
+      // At phase=0.5: tx=+r (no shadow), 0.75: tx=0 (half), 1.0: tx=-r (all dark)
+      // Terminator (half-ellipse): top → bottom
+      //   c < 0 (gibbous, tx>0): go CW through right
+      //   c > 0 (crescent, tx<0): go CCW through left
+      ctx.moveTo(moonViewX, moonViewY - moonViewR);
+      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, -Math.PI/2, Math.PI/2, c > 0);
+      // Right limb (semicircle): bottom → top through RIGHT
+      ctx.arc(moonViewX, moonViewY, moonViewR, Math.PI/2, -Math.PI/2, false);
     }
     ctx.fill();
     ctx.restore();
@@ -1748,6 +1781,241 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 
   typeSelect.addEventListener('change', draw);
   inclSlider.addEventListener('input', draw);
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 5b. Eclipse Observer Simulation (Seoul, 37.5°N)
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('eclipseObsCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const eventSelect = document.getElementById('eclipseEvent');
+  const timeSlider = document.getElementById('eclipseTime');
+  const info = document.getElementById('eclipseObsInfo');
+
+  // Real eclipse data visible from Seoul area (UTC+9)
+  // {name, type, date, startH, maxH, endH, maxMag, sunAlt, desc}
+  const eclipseEvents = [
+    { id: 'solar_20350902', name: '2035-09-02 개기일식', type: 'solar', kind: 'total',
+      date: '2035년 9월 2일', startH: 8.8, maxH: 9.95, endH: 11.2, maxMag: 1.02,
+      sunAltStart: 35, sunAltMax: 47, sunAltEnd: 57,
+      desc: '한반도에서 관측 가능한 개기일식. 개기식 지속시간 약 2분 10초. 북한 평양~원산 부근이 개기식 중심대.' },
+    { id: 'solar_20300601', name: '2030-06-01 금환일식', type: 'solar', kind: 'annular',
+      date: '2030년 6월 1일', startH: 15.5, maxH: 16.8, endH: 17.9, maxMag: 0.89,
+      sunAltStart: 52, sunAltMax: 38, sunAltEnd: 22,
+      desc: '서울에서 부분일식(식분 ~0.89)으로 관측. 금환일식 중심대는 일본 남부.' },
+    { id: 'solar_20280722', name: '2028-07-22 부분일식', type: 'solar', kind: 'partial',
+      date: '2028년 7월 22일', startH: 17.0, maxH: 17.8, endH: 18.5, maxMag: 0.36,
+      sunAltStart: 30, sunAltMax: 20, sunAltEnd: 10,
+      desc: '서울에서 부분일식(식분 ~0.36). 해질녘에 태양 우측 상단이 가려짐.' },
+    { id: 'lunar_20250914', name: '2025-09-07 개기월식', type: 'lunar', kind: 'total',
+      date: '2025년 9월 7일', startH: 23.3, maxH: 1.5, endH: 3.7, maxMag: 1.36,
+      moonAltStart: 35, moonAltMax: 28, moonAltEnd: 15,
+      desc: '한국에서 전 과정 관측 가능한 개기월식. 달이 붉게 물드는 "블러드 문".' },
+    { id: 'lunar_20261231', name: '2028-12-31 개기월식', type: 'lunar', kind: 'total',
+      date: '2028년 12월 31일', startH: 22.1, maxH: 0.5, endH: 2.9, maxMag: 1.22,
+      moonAltStart: 60, moonAltMax: 65, moonAltEnd: 55,
+      desc: '연말 밤하늘의 개기월식. 달이 높이 떠있어 최적의 관측 조건.' },
+  ];
+
+  function getEvent() {
+    const idx = parseInt(eventSelect.value);
+    return eclipseEvents[idx] || eclipseEvents[0];
+  }
+
+  // Populate select
+  eclipseEvents.forEach((ev, i) => {
+    const opt = document.createElement('option');
+    opt.value = i; opt.textContent = ev.name;
+    eventSelect.appendChild(opt);
+  });
+
+  function draw() {
+    const ev = getEvent();
+    const t = parseFloat(timeSlider.value); // 0-1 progress through eclipse
+    ctx.clearRect(0, 0, W, H);
+
+    const isSolar = ev.type === 'solar';
+    const currentH = ev.startH + t * (ev.endH - ev.startH);
+    const hours = Math.floor(currentH % 24);
+    const mins = Math.floor((currentH % 1) * 60);
+
+    // Sky gradient based on time and eclipse
+    const isNight = !isSolar;
+    if (isSolar) {
+      // Daytime sky, darken during max eclipse
+      const maxT = (ev.maxH - ev.startH) / (ev.endH - ev.startH);
+      const distToMax = Math.abs(t - maxT);
+      const eclipseDarkness = Math.max(0, 1 - distToMax * 4) * ev.maxMag;
+      const skyBright = Math.max(0.1, 1 - eclipseDarkness * 0.8);
+      const r = Math.floor(100 * skyBright);
+      const g = Math.floor(160 * skyBright);
+      const b = Math.floor(230 * skyBright);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(0, 0, W, H);
+      // Stars visible during total eclipse
+      if (eclipseDarkness > 0.9) {
+        for (let i = 0; i < 30; i++) {
+          ctx.fillStyle = `rgba(255,255,255,${eclipseDarkness - 0.8})`;
+          ctx.beginPath();
+          ctx.arc((i * 97 + 20) % W, (i * 61 + 10) % (H * 0.6), 1, 0, TAU);
+          ctx.fill();
+        }
+      }
+    } else {
+      // Night sky
+      const grad = ctx.createLinearGradient(0, 0, 0, H);
+      grad.addColorStop(0, '#0a0e27'); grad.addColorStop(1, '#1a1a30');
+      ctx.fillStyle = grad; ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 50; i++) {
+        ctx.fillStyle = `rgba(255,255,255,${0.2 + Math.random() * 0.4})`;
+        ctx.beginPath();
+        ctx.arc((i * 137 + 30) % W, (i * 89 + 15) % (H * 0.65), 0.6, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // Ground / horizon
+    ctx.fillStyle = isSolar ? '#2a5a2a' : '#1a2a1a';
+    ctx.fillRect(0, H * 0.78, W, H * 0.22);
+    // Skyline silhouette
+    ctx.fillStyle = isSolar ? '#1a3a1a' : '#0a1a0a';
+    ctx.beginPath();
+    ctx.moveTo(0, H * 0.78);
+    for (let x = 0; x <= W; x += 20) {
+      ctx.lineTo(x, H * 0.78 - Math.sin(x * 0.02) * 8 - Math.random() * 3);
+    }
+    ctx.lineTo(W, H * 0.78);
+    ctx.fill();
+
+    // Seoul landmark hint
+    ctx.fillStyle = isSolar ? '#1a3a1a' : '#0a1a0a';
+    ctx.fillRect(W * 0.45, H * 0.68, 6, H * 0.10); // tower
+    ctx.beginPath();
+    ctx.arc(W * 0.45 + 3, H * 0.67, 8, 0, TAU); ctx.fill();
+
+    // Calculate celestial body position
+    const altStart = isSolar ? ev.sunAltStart : ev.moonAltStart;
+    const altMax = isSolar ? ev.sunAltMax : ev.moonAltMax;
+    const altEnd = isSolar ? ev.sunAltEnd : ev.moonAltEnd;
+    const alt = altStart + t * (altEnd - altStart); // simplified linear interpolation
+    const bodyY = H * 0.78 - (alt / 90) * H * 0.70;
+    const bodyX = W * 0.2 + t * W * 0.6;
+
+    if (isSolar) {
+      // ── Solar eclipse view from Seoul ──
+      const sunR = 36;
+      const maxT = (ev.maxH - ev.startH) / (ev.endH - ev.startH);
+      // Moon moves across sun disk
+      const moonPhase = (t - maxT) * 3; // -1.5 to 1.5 normalized
+      const moonOffsetX = moonPhase * sunR * 1.2;
+      const moonOffsetY = -moonPhase * sunR * 0.3; // slight diagonal
+
+      // Sun glow
+      const glowR = sunR + 15;
+      const sg = ctx.createRadialGradient(bodyX, bodyY, sunR * 0.8, bodyX, bodyY, glowR);
+      sg.addColorStop(0, 'rgba(255,200,50,0.3)');
+      sg.addColorStop(1, 'rgba(255,200,50,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(bodyX, bodyY, glowR, 0, TAU); ctx.fill();
+
+      // Corona (visible near totality)
+      const distMax = Math.abs(t - maxT);
+      if (distMax < 0.15 && ev.kind === 'total') {
+        const coronaAlpha = Math.max(0, 1 - distMax * 10);
+        for (let a = 0; a < TAU; a += 0.15) {
+          const cLen = sunR * (1.5 + 0.5 * Math.sin(a * 7));
+          const cg = ctx.createLinearGradient(
+            bodyX + sunR * 0.8 * Math.cos(a), bodyY + sunR * 0.8 * Math.sin(a),
+            bodyX + cLen * Math.cos(a), bodyY + cLen * Math.sin(a));
+          cg.addColorStop(0, `rgba(255,255,255,${coronaAlpha * 0.5})`);
+          cg.addColorStop(1, 'rgba(255,255,255,0)');
+          ctx.strokeStyle = cg; ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.moveTo(bodyX + sunR * 0.9 * Math.cos(a), bodyY + sunR * 0.9 * Math.sin(a));
+          ctx.lineTo(bodyX + cLen * Math.cos(a), bodyY + cLen * Math.sin(a));
+          ctx.stroke();
+        }
+      }
+
+      // Sun disk
+      ctx.fillStyle = '#ffdd44';
+      ctx.beginPath(); ctx.arc(bodyX, bodyY, sunR, 0, TAU); ctx.fill();
+
+      // Moon disk overlapping
+      ctx.fillStyle = '#1a1a2a';
+      const moonR = sunR * (ev.kind === 'annular' ? 0.92 : 1.02);
+      ctx.beginPath(); ctx.arc(bodyX + moonOffsetX, bodyY + moonOffsetY, moonR, 0, TAU); ctx.fill();
+
+    } else {
+      // ── Lunar eclipse view from Seoul ──
+      const moonR = 32;
+      const maxT = (ev.maxH - ev.startH) / (ev.endH - ev.startH);
+      const eclipseProgress = 1 - Math.abs(t - maxT) / maxT; // 0 at start/end, 1 at max
+
+      // Moon disk (bright)
+      ctx.fillStyle = '#e8e4d8';
+      ctx.beginPath(); ctx.arc(bodyX, bodyY, moonR, 0, TAU); ctx.fill();
+
+      // Mare (surface features)
+      ctx.fillStyle = '#ccc8b8';
+      ctx.beginPath(); ctx.arc(bodyX - 8, bodyY - 5, 7, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(bodyX + 6, bodyY + 8, 5, 0, TAU); ctx.fill();
+      ctx.beginPath(); ctx.arc(bodyX + 12, bodyY - 10, 4, 0, TAU); ctx.fill();
+
+      // Earth's shadow sweeping across
+      ctx.save();
+      ctx.beginPath(); ctx.arc(bodyX, bodyY, moonR, 0, TAU); ctx.clip();
+
+      // Shadow enters from left
+      const shadowCx = bodyX - moonR * 2.5 + eclipseProgress * moonR * 2.5;
+      const shadowR = moonR * 2.2;
+
+      // Penumbral shadow
+      const penGrad = ctx.createRadialGradient(shadowCx, bodyY, shadowR * 0.5, shadowCx, bodyY, shadowR);
+      penGrad.addColorStop(0, 'rgba(0,0,0,0.7)');
+      penGrad.addColorStop(0.6, 'rgba(80,20,10,0.5)');
+      penGrad.addColorStop(1, 'rgba(0,0,0,0)');
+      ctx.fillStyle = penGrad;
+      ctx.beginPath(); ctx.arc(shadowCx, bodyY, shadowR, 0, TAU); ctx.fill();
+
+      // Blood moon tint at maximum
+      if (eclipseProgress > 0.6) {
+        const tint = (eclipseProgress - 0.6) / 0.4;
+        ctx.fillStyle = `rgba(180,50,20,${tint * 0.5})`;
+        ctx.beginPath(); ctx.arc(bodyX, bodyY, moonR, 0, TAU); ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    // Time and info display
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 13px Noto Sans KR'; ctx.textAlign = 'left';
+    ctx.fillText(`서울 관측 시각: ${String(hours).padStart(2,'0')}:${String(mins).padStart(2,'0')} KST`, 12, 22);
+    ctx.font = '11px Noto Sans KR'; ctx.fillStyle = '#ddd';
+    ctx.fillText(`고도: ${alt.toFixed(1)}°`, 12, 40);
+    ctx.fillText(ev.date, 12, 56);
+
+    // Event type badge
+    ctx.fillStyle = isSolar ? '#ff8844' : '#8844ff';
+    const badge = isSolar ? (ev.kind === 'total' ? '개기일식' : ev.kind === 'annular' ? '금환일식' : '부분일식')
+                          : (ev.kind === 'total' ? '개기월식' : '부분월식');
+    ctx.font = 'bold 12px Noto Sans KR'; ctx.textAlign = 'right';
+    ctx.fillText(badge, W - 12, 22);
+
+    // Compass direction
+    ctx.fillStyle = '#aaa'; ctx.font = '10px Noto Sans KR'; ctx.textAlign = 'center';
+    ctx.fillText('남', W * 0.5, H * 0.78 + 16);
+    ctx.fillText('동', W * 0.08, H * 0.78 + 16);
+    ctx.fillText('서', W * 0.92, H * 0.78 + 16);
+
+    if (info) info.textContent = ev.desc;
+  }
+
+  eventSelect.addEventListener('change', () => { timeSlider.value = 0; draw(); });
+  timeSlider.addEventListener('input', draw);
   draw();
 })();
 
