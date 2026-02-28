@@ -151,8 +151,8 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     if (animId) { cancelAnimationFrame(animId); animId = null; }
     trail = [];
     stepCount = 0;
-    // Start above Earth surface (altitude ≈ 0.5 Re), launch horizontally
-    const launchR = Re * 1.5;
+    // Start above Earth surface (altitude ≈ 0.2 Re ≈ 1,270km), launch horizontally
+    const launchR = Re * 1.2;
     sx = 0; sy = -launchR;
     const vNorm = parseFloat(velSlider.value);
     svx = vNorm; svy = 0;
