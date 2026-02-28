@@ -113,6 +113,252 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 })();
 
 // ═══════════════════════════════════════════════════════════
+// 1b. Escape Velocity Simulation
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('escapeCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const velSlider = document.getElementById('escapeVelSlider');
+  const velVal = document.getElementById('escapeVelVal');
+  const launchBtn = document.getElementById('escapeLaunchBtn');
+  const resetBtn = document.getElementById('escapeResetBtn');
+  const info = document.getElementById('escapeInfo');
+
+  // Normalized units: Earth radius = 1, GM = 1
+  // v_circular = 1, v_escape = sqrt(2) ≈ 1.414
+  const GM = 1;
+  const Re = 1; // Earth radius in sim units
+  const V_CIRC = 7.9;  // km/s (for display)
+  const V_ESC = 11.2;  // km/s
+
+  const cx = W * 0.4, cy = H * 0.5;
+  const scale = 45; // pixels per sim unit
+  const earthPixR = Re * scale;
+  const dt = 0.005;
+  const maxSteps = 12000;
+  const trailMax = 4000;
+
+  let trail = [];
+  let sx, sy, svx, svy; // spacecraft state
+  let running = false;
+  let animId = null;
+  let stepCount = 0;
+
+  function resetSim() {
+    running = false;
+    if (animId) { cancelAnimationFrame(animId); animId = null; }
+    trail = [];
+    stepCount = 0;
+    // Start at top of Earth, launch horizontally to the right
+    sx = 0; sy = -Re;
+    const vNorm = parseFloat(velSlider.value);
+    svx = vNorm; svy = 0;
+    drawFrame();
+    updateInfo(vNorm);
+  }
+
+  function updateInfo(vNorm) {
+    const vKms = (vNorm * V_CIRC).toFixed(1);
+    let type = '';
+    if (vNorm < 0.85) type = '지표면 충돌 (아궤도)';
+    else if (Math.abs(vNorm - 1.0) < 0.05) type = '원 궤도 (v = v₁)';
+    else if (vNorm < 1.414) type = '타원 궤도';
+    else if (Math.abs(vNorm - 1.414) < 0.05) type = '포물선 탈출 (v = v₂)';
+    else type = '쌍곡선 탈출 (v > v₂)';
+    info.innerHTML =
+      '<strong>초기속도:</strong> ' + vKms + ' km/s (' + vNorm.toFixed(2) + ' v₁) | ' +
+      '<strong>궤도 유형:</strong> ' + type + ' | ' +
+      '<strong>v₁(원궤도):</strong> ' + V_CIRC + ' km/s | ' +
+      '<strong>v₂(탈출):</strong> ' + V_ESC + ' km/s';
+  }
+
+  function step() {
+    // Velocity Verlet integration
+    const r2 = sx * sx + sy * sy;
+    const r = Math.sqrt(r2);
+    if (r < Re * 0.3) { running = false; return; } // crashed deep
+    const a = -GM / r2;
+    const ax = a * sx / r;
+    const ay = a * sy / r;
+
+    // Half-step velocity
+    const hvx = svx + ax * dt * 0.5;
+    const hvy = svy + ay * dt * 0.5;
+    // Full-step position
+    sx += hvx * dt;
+    sy += hvy * dt;
+    // New acceleration
+    const nr2 = sx * sx + sy * sy;
+    const nr = Math.sqrt(nr2);
+    const na = -GM / nr2;
+    const nax = na * sx / nr;
+    const nay = na * sy / nr;
+    // Full-step velocity
+    svx = hvx + nax * dt * 0.5;
+    svy = hvy + nay * dt * 0.5;
+
+    trail.push({ x: sx, y: sy });
+    if (trail.length > trailMax) trail.shift();
+    stepCount++;
+
+    // Stop conditions
+    if (nr < Re && stepCount > 10) { running = false; return; } // impact
+    if (nr > 12) { running = false; return; } // escaped
+    if (stepCount > maxSteps) { running = false; return; }
+  }
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0e27';
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars
+    for (let i = 0; i < 50; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.3})`;
+      ctx.beginPath();
+      ctx.arc((i * 137.5) % W, (i * 97.3) % H, 0.4 + Math.random() * 0.5, 0, TAU);
+      ctx.fill();
+    }
+
+    // Orbit reference circles
+    ctx.strokeStyle = 'rgba(100,150,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    for (let r = 2; r <= 6; r += 2) {
+      ctx.beginPath(); ctx.arc(cx, cy, r * scale, 0, TAU); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Earth
+    const eGrad = ctx.createRadialGradient(cx - earthPixR * 0.2, cy - earthPixR * 0.2, earthPixR * 0.1, cx, cy, earthPixR);
+    eGrad.addColorStop(0, '#6eb5ff');
+    eGrad.addColorStop(0.6, '#2266cc');
+    eGrad.addColorStop(1, '#0a3366');
+    ctx.fillStyle = eGrad;
+    ctx.beginPath(); ctx.arc(cx, cy, earthPixR, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#4488cc';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, earthPixR, 0, TAU); ctx.stroke();
+
+    // Earth label
+    ctx.fillStyle = '#88bbee';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('지구', cx, cy + earthPixR + 14);
+
+    // Trail
+    if (trail.length > 1) {
+      for (let i = 1; i < trail.length; i++) {
+        const alpha = 0.15 + 0.85 * (i / trail.length);
+        const speed = i < trail.length - 1 ?
+          Math.sqrt((trail[i].x - trail[i-1].x)**2 + (trail[i].y - trail[i-1].y)**2) / dt : 0;
+        // Color by speed: slow=blue, fast=red
+        const t = Math.min(speed / 2, 1);
+        const r = Math.floor(80 + 175 * t);
+        const g = Math.floor(180 - 80 * t);
+        const b = Math.floor(255 - 200 * t);
+        ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx + trail[i-1].x * scale, cy + trail[i-1].y * scale);
+        ctx.lineTo(cx + trail[i].x * scale, cy + trail[i].y * scale);
+        ctx.stroke();
+      }
+    }
+
+    // Spacecraft
+    const spx = cx + sx * scale;
+    const spy = cy + sy * scale;
+    if (spx > -20 && spx < W + 20 && spy > -20 && spy < H + 20) {
+      // Glow
+      const sGrad = ctx.createRadialGradient(spx, spy, 1, spx, spy, 10);
+      sGrad.addColorStop(0, 'rgba(255,200,100,0.8)');
+      sGrad.addColorStop(1, 'rgba(255,200,100,0)');
+      ctx.fillStyle = sGrad;
+      ctx.beginPath(); ctx.arc(spx, spy, 10, 0, TAU); ctx.fill();
+      // Body
+      ctx.fillStyle = '#ffdd88';
+      ctx.beginPath(); ctx.arc(spx, spy, 3, 0, TAU); ctx.fill();
+
+      // Velocity vector
+      const vLen = Math.sqrt(svx * svx + svy * svy);
+      if (vLen > 0.01) {
+        const vScale = 25;
+        ctx.strokeStyle = '#ff6644';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(spx, spy);
+        ctx.lineTo(spx + svx / vLen * vScale, spy + svy / vLen * vScale);
+        ctx.stroke();
+        // Arrow
+        const va = Math.atan2(svy, svx);
+        ctx.beginPath();
+        ctx.moveTo(spx + svx / vLen * vScale, spy + svy / vLen * vScale);
+        ctx.lineTo(spx + svx / vLen * vScale - 6 * Math.cos(va - 0.4), spy + svy / vLen * vScale - 6 * Math.sin(va - 0.4));
+        ctx.moveTo(spx + svx / vLen * vScale, spy + svy / vLen * vScale);
+        ctx.lineTo(spx + svx / vLen * vScale - 6 * Math.cos(va + 0.4), spy + svy / vLen * vScale - 6 * Math.sin(va + 0.4));
+        ctx.stroke();
+      }
+    }
+
+    // Escape velocity reference (right side info)
+    const infoX = W - 140;
+    ctx.fillStyle = 'rgba(150,180,220,0.7)';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('v₁ (원궤도) = 7.9 km/s', infoX, 24);
+    ctx.fillText('v₂ (탈출) = 11.2 km/s', infoX, 40);
+    ctx.fillText('v₂ = √2 · v₁', infoX, 56);
+
+    // Speed color legend
+    ctx.fillStyle = 'rgba(150,180,220,0.5)';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('궤적 색상: ', infoX, H - 30);
+    const legY = H - 18;
+    for (let i = 0; i < 60; i++) {
+      const t = i / 59;
+      const r = Math.floor(80 + 175 * t);
+      const g = Math.floor(180 - 80 * t);
+      const b = Math.floor(255 - 200 * t);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(infoX + i * 1.5, legY, 1.5, 8);
+    }
+    ctx.fillStyle = 'rgba(150,180,220,0.5)';
+    ctx.fillText('느림', infoX - 2, legY + 7);
+    ctx.fillText('빠름', infoX + 95, legY + 7);
+  }
+
+  function animate() {
+    if (!running) return;
+    for (let i = 0; i < 8; i++) { // multiple steps per frame
+      step();
+      if (!running) break;
+    }
+    drawFrame();
+    if (running) animId = requestAnimationFrame(animate);
+  }
+
+  velSlider.addEventListener('input', function() {
+    const v = parseFloat(velSlider.value);
+    velVal.textContent = (v * V_CIRC).toFixed(1) + ' km/s';
+    updateInfo(v);
+    if (!running) resetSim();
+  });
+
+  launchBtn.addEventListener('click', function() {
+    resetSim();
+    running = true;
+    animate();
+  });
+
+  resetBtn.addEventListener('click', resetSim);
+
+  resetSim();
+})();
+
+// ═══════════════════════════════════════════════════════════
 // 2. Orbital Motion Simulation (Sun-Earth-Moon)
 // ═══════════════════════════════════════════════════════════
 (function() {

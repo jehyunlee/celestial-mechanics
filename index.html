@@ -483,6 +483,7 @@ footer { background: var(--navy); color: #aac; padding: 24px 44px;
 <a class="toc-section" href="#ch2">2. 만유인력의 법칙</a>
 <a class="toc-section" href="#sec2-1">2.1 뉴턴의 만유인력</a>
 <a class="toc-section" href="#sec2-2">2.2 만유인력 시뮬레이션</a>
+<a class="toc-section" href="#sec2-3">2.3 우주 탈출속도 시뮬레이션</a>
 <div class="toc-chapter">3. 공전과 자전</div>
 <a class="toc-section" href="#ch3">3. 공전과 자전</a>
 <a class="toc-section" href="#sec3-1">3.1 지구의 공전과 자전</a>
@@ -687,6 +688,45 @@ footer { background: var(--navy); color: #aac; padding: 24px 44px;
   </div>
   <div class="sim-info" id="gravityInfo"></div>
 </div>
+
+<h2 class="section-title" id="sec2-3">2.3 우주 탈출속도 시뮬레이션</h2>
+
+<p>지표면에서 발사된 비행체의 궤도는 <strong>초기속도</strong>에 의해 결정됩니다. 뉴턴의 만유인력에 의한 역학적 에너지 보존으로부터 두 가지 임계 속도를 유도할 수 있습니다:</p>
+
+<div class="math-block">
+<p><strong>제1우주속도 (원궤도 속도)</strong></p>
+<p>$$ v_1 = \sqrt{\frac{GM}{R}} \approx 7.9 \, \text{km/s} $$</p>
+<p>지표면 근처에서 원궤도를 유지하는 최소 속도입니다.</p>
+
+<p><strong>제2우주속도 (탈출속도)</strong></p>
+<p>$$ v_2 = \sqrt{\frac{2GM}{R}} = \sqrt{2} \, v_1 \approx 11.2 \, \text{km/s} $$</p>
+<p>지구 중력권을 벗어나기 위한 최소 속도입니다. 총 역학적 에너지 \(E = \frac{1}{2}mv^2 - \frac{GMm}{r} = 0\)인 경계 조건에서 유도됩니다.</p>
+
+<p><strong>궤도 유형과 에너지</strong></p>
+<p>$$ E < 0: \text{타원(또는 원) 궤도} \quad , \quad E = 0: \text{포물선 탈출} \quad , \quad E > 0: \text{쌍곡선 탈출} $$</p>
+</div>
+
+<p>아래 시뮬레이션에서 초기속도를 조절하고 <strong>발사</strong> 버튼을 눌러 비행체의 궤적을 관찰하세요. 궤적 색상은 속도를 나타냅니다 — 근지점에서 빠르고(붉은색), 원지점에서 느립니다(푸른색).</p>
+
+<div class="sim-container">
+  <canvas id="escapeCanvas" width="700" height="360"></canvas>
+  <div class="sim-controls">
+    <label>초기속도: <input type="range" id="escapeVelSlider" min="0.3" max="2.0" step="0.01" value="1.0"> <span id="escapeVelVal">7.9 km/s</span></label>
+    <button id="escapeLaunchBtn">발사</button>
+    <button id="escapeResetBtn">초기화</button>
+  </div>
+  <div class="sim-info" id="escapeInfo"></div>
+</div>
+
+<div class="info-box">
+<div class="box-title">[시뮬레이션 관찰 포인트]</div>
+<p><strong>v ≈ 5.5 km/s (0.7 v₁)</strong>: 비행체가 지구에 다시 충돌합니다 (아궤도)</p>
+<p><strong>v = 7.9 km/s (1.0 v₁)</strong>: 원형 궤도 — 인공위성 궤도의 기본형</p>
+<p><strong>v ≈ 9.5 km/s (1.2 v₁)</strong>: 타원 궤도 — 원지점이 발사 반대편에 형성</p>
+<p><strong>v = 11.2 km/s (√2 v₁)</strong>: 포물선 탈출 — 무한히 멀어지며 속도가 0에 수렴</p>
+<p><strong>v > 11.2 km/s</strong>: 쌍곡선 탈출 — 잔여 속도를 유지하며 탈출</p>
+</div>
+
 </div>
 </div>
 <div class="chapter" id="ch3">
@@ -1217,6 +1257,252 @@ function lerp(a, b, t) { return a + (b - a) * t; }
   distSlider.addEventListener('input', draw);
   massSlider.addEventListener('input', draw);
   draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 1b. Escape Velocity Simulation
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('escapeCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const velSlider = document.getElementById('escapeVelSlider');
+  const velVal = document.getElementById('escapeVelVal');
+  const launchBtn = document.getElementById('escapeLaunchBtn');
+  const resetBtn = document.getElementById('escapeResetBtn');
+  const info = document.getElementById('escapeInfo');
+
+  // Normalized units: Earth radius = 1, GM = 1
+  // v_circular = 1, v_escape = sqrt(2) ≈ 1.414
+  const GM = 1;
+  const Re = 1; // Earth radius in sim units
+  const V_CIRC = 7.9;  // km/s (for display)
+  const V_ESC = 11.2;  // km/s
+
+  const cx = W * 0.4, cy = H * 0.5;
+  const scale = 45; // pixels per sim unit
+  const earthPixR = Re * scale;
+  const dt = 0.005;
+  const maxSteps = 12000;
+  const trailMax = 4000;
+
+  let trail = [];
+  let sx, sy, svx, svy; // spacecraft state
+  let running = false;
+  let animId = null;
+  let stepCount = 0;
+
+  function resetSim() {
+    running = false;
+    if (animId) { cancelAnimationFrame(animId); animId = null; }
+    trail = [];
+    stepCount = 0;
+    // Start at top of Earth, launch horizontally to the right
+    sx = 0; sy = -Re;
+    const vNorm = parseFloat(velSlider.value);
+    svx = vNorm; svy = 0;
+    drawFrame();
+    updateInfo(vNorm);
+  }
+
+  function updateInfo(vNorm) {
+    const vKms = (vNorm * V_CIRC).toFixed(1);
+    let type = '';
+    if (vNorm < 0.85) type = '지표면 충돌 (아궤도)';
+    else if (Math.abs(vNorm - 1.0) < 0.05) type = '원 궤도 (v = v₁)';
+    else if (vNorm < 1.414) type = '타원 궤도';
+    else if (Math.abs(vNorm - 1.414) < 0.05) type = '포물선 탈출 (v = v₂)';
+    else type = '쌍곡선 탈출 (v > v₂)';
+    info.innerHTML =
+      '<strong>초기속도:</strong> ' + vKms + ' km/s (' + vNorm.toFixed(2) + ' v₁) | ' +
+      '<strong>궤도 유형:</strong> ' + type + ' | ' +
+      '<strong>v₁(원궤도):</strong> ' + V_CIRC + ' km/s | ' +
+      '<strong>v₂(탈출):</strong> ' + V_ESC + ' km/s';
+  }
+
+  function step() {
+    // Velocity Verlet integration
+    const r2 = sx * sx + sy * sy;
+    const r = Math.sqrt(r2);
+    if (r < Re * 0.3) { running = false; return; } // crashed deep
+    const a = -GM / r2;
+    const ax = a * sx / r;
+    const ay = a * sy / r;
+
+    // Half-step velocity
+    const hvx = svx + ax * dt * 0.5;
+    const hvy = svy + ay * dt * 0.5;
+    // Full-step position
+    sx += hvx * dt;
+    sy += hvy * dt;
+    // New acceleration
+    const nr2 = sx * sx + sy * sy;
+    const nr = Math.sqrt(nr2);
+    const na = -GM / nr2;
+    const nax = na * sx / nr;
+    const nay = na * sy / nr;
+    // Full-step velocity
+    svx = hvx + nax * dt * 0.5;
+    svy = hvy + nay * dt * 0.5;
+
+    trail.push({ x: sx, y: sy });
+    if (trail.length > trailMax) trail.shift();
+    stepCount++;
+
+    // Stop conditions
+    if (nr < Re && stepCount > 10) { running = false; return; } // impact
+    if (nr > 12) { running = false; return; } // escaped
+    if (stepCount > maxSteps) { running = false; return; }
+  }
+
+  function drawFrame() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0e27';
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars
+    for (let i = 0; i < 50; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.3})`;
+      ctx.beginPath();
+      ctx.arc((i * 137.5) % W, (i * 97.3) % H, 0.4 + Math.random() * 0.5, 0, TAU);
+      ctx.fill();
+    }
+
+    // Orbit reference circles
+    ctx.strokeStyle = 'rgba(100,150,255,0.1)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    for (let r = 2; r <= 6; r += 2) {
+      ctx.beginPath(); ctx.arc(cx, cy, r * scale, 0, TAU); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+
+    // Earth
+    const eGrad = ctx.createRadialGradient(cx - earthPixR * 0.2, cy - earthPixR * 0.2, earthPixR * 0.1, cx, cy, earthPixR);
+    eGrad.addColorStop(0, '#6eb5ff');
+    eGrad.addColorStop(0.6, '#2266cc');
+    eGrad.addColorStop(1, '#0a3366');
+    ctx.fillStyle = eGrad;
+    ctx.beginPath(); ctx.arc(cx, cy, earthPixR, 0, TAU); ctx.fill();
+    ctx.strokeStyle = '#4488cc';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, earthPixR, 0, TAU); ctx.stroke();
+
+    // Earth label
+    ctx.fillStyle = '#88bbee';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('지구', cx, cy + earthPixR + 14);
+
+    // Trail
+    if (trail.length > 1) {
+      for (let i = 1; i < trail.length; i++) {
+        const alpha = 0.15 + 0.85 * (i / trail.length);
+        const speed = i < trail.length - 1 ?
+          Math.sqrt((trail[i].x - trail[i-1].x)**2 + (trail[i].y - trail[i-1].y)**2) / dt : 0;
+        // Color by speed: slow=blue, fast=red
+        const t = Math.min(speed / 2, 1);
+        const r = Math.floor(80 + 175 * t);
+        const g = Math.floor(180 - 80 * t);
+        const b = Math.floor(255 - 200 * t);
+        ctx.strokeStyle = `rgba(${r},${g},${b},${alpha})`;
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(cx + trail[i-1].x * scale, cy + trail[i-1].y * scale);
+        ctx.lineTo(cx + trail[i].x * scale, cy + trail[i].y * scale);
+        ctx.stroke();
+      }
+    }
+
+    // Spacecraft
+    const spx = cx + sx * scale;
+    const spy = cy + sy * scale;
+    if (spx > -20 && spx < W + 20 && spy > -20 && spy < H + 20) {
+      // Glow
+      const sGrad = ctx.createRadialGradient(spx, spy, 1, spx, spy, 10);
+      sGrad.addColorStop(0, 'rgba(255,200,100,0.8)');
+      sGrad.addColorStop(1, 'rgba(255,200,100,0)');
+      ctx.fillStyle = sGrad;
+      ctx.beginPath(); ctx.arc(spx, spy, 10, 0, TAU); ctx.fill();
+      // Body
+      ctx.fillStyle = '#ffdd88';
+      ctx.beginPath(); ctx.arc(spx, spy, 3, 0, TAU); ctx.fill();
+
+      // Velocity vector
+      const vLen = Math.sqrt(svx * svx + svy * svy);
+      if (vLen > 0.01) {
+        const vScale = 25;
+        ctx.strokeStyle = '#ff6644';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(spx, spy);
+        ctx.lineTo(spx + svx / vLen * vScale, spy + svy / vLen * vScale);
+        ctx.stroke();
+        // Arrow
+        const va = Math.atan2(svy, svx);
+        ctx.beginPath();
+        ctx.moveTo(spx + svx / vLen * vScale, spy + svy / vLen * vScale);
+        ctx.lineTo(spx + svx / vLen * vScale - 6 * Math.cos(va - 0.4), spy + svy / vLen * vScale - 6 * Math.sin(va - 0.4));
+        ctx.moveTo(spx + svx / vLen * vScale, spy + svy / vLen * vScale);
+        ctx.lineTo(spx + svx / vLen * vScale - 6 * Math.cos(va + 0.4), spy + svy / vLen * vScale - 6 * Math.sin(va + 0.4));
+        ctx.stroke();
+      }
+    }
+
+    // Escape velocity reference (right side info)
+    const infoX = W - 140;
+    ctx.fillStyle = 'rgba(150,180,220,0.7)';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('v₁ (원궤도) = 7.9 km/s', infoX, 24);
+    ctx.fillText('v₂ (탈출) = 11.2 km/s', infoX, 40);
+    ctx.fillText('v₂ = √2 · v₁', infoX, 56);
+
+    // Speed color legend
+    ctx.fillStyle = 'rgba(150,180,220,0.5)';
+    ctx.font = '10px sans-serif';
+    ctx.fillText('궤적 색상: ', infoX, H - 30);
+    const legY = H - 18;
+    for (let i = 0; i < 60; i++) {
+      const t = i / 59;
+      const r = Math.floor(80 + 175 * t);
+      const g = Math.floor(180 - 80 * t);
+      const b = Math.floor(255 - 200 * t);
+      ctx.fillStyle = `rgb(${r},${g},${b})`;
+      ctx.fillRect(infoX + i * 1.5, legY, 1.5, 8);
+    }
+    ctx.fillStyle = 'rgba(150,180,220,0.5)';
+    ctx.fillText('느림', infoX - 2, legY + 7);
+    ctx.fillText('빠름', infoX + 95, legY + 7);
+  }
+
+  function animate() {
+    if (!running) return;
+    for (let i = 0; i < 8; i++) { // multiple steps per frame
+      step();
+      if (!running) break;
+    }
+    drawFrame();
+    if (running) animId = requestAnimationFrame(animate);
+  }
+
+  velSlider.addEventListener('input', function() {
+    const v = parseFloat(velSlider.value);
+    velVal.textContent = (v * V_CIRC).toFixed(1) + ' km/s';
+    updateInfo(v);
+    if (!running) resetSim();
+  });
+
+  launchBtn.addEventListener('click', function() {
+    resetSim();
+    running = true;
+    animate();
+  });
+
+  resetBtn.addEventListener('click', resetSim);
+
+  resetSim();
 })();
 
 // ═══════════════════════════════════════════════════════════

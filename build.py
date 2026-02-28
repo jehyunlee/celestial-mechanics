@@ -61,6 +61,7 @@ toc_items = [
     ('ch2', '2. 만유인력의 법칙', [
         ('sec2-1', '2.1 뉴턴의 만유인력'),
         ('sec2-2', '2.2 만유인력 시뮬레이션'),
+        ('sec2-3', '2.3 우주 탈출속도 시뮬레이션'),
     ]),
     ('ch3', '3. 공전과 자전', [
         ('sec3-1', '3.1 지구의 공전과 자전'),
@@ -221,6 +222,45 @@ ch2 = '''<div class="chapter" id="ch2">
   </div>
   <div class="sim-info" id="gravityInfo"></div>
 </div>
+
+<h2 class="section-title" id="sec2-3">2.3 우주 탈출속도 시뮬레이션</h2>
+
+<p>지표면에서 발사된 비행체의 궤도는 <strong>초기속도</strong>에 의해 결정됩니다. 뉴턴의 만유인력에 의한 역학적 에너지 보존으로부터 두 가지 임계 속도를 유도할 수 있습니다:</p>
+
+<div class="math-block">
+<p><strong>제1우주속도 (원궤도 속도)</strong></p>
+<p>$$ v_1 = \\sqrt{\\frac{GM}{R}} \\approx 7.9 \\, \\text{km/s} $$</p>
+<p>지표면 근처에서 원궤도를 유지하는 최소 속도입니다.</p>
+
+<p><strong>제2우주속도 (탈출속도)</strong></p>
+<p>$$ v_2 = \\sqrt{\\frac{2GM}{R}} = \\sqrt{2} \\, v_1 \\approx 11.2 \\, \\text{km/s} $$</p>
+<p>지구 중력권을 벗어나기 위한 최소 속도입니다. 총 역학적 에너지 \\(E = \\frac{1}{2}mv^2 - \\frac{GMm}{r} = 0\\)인 경계 조건에서 유도됩니다.</p>
+
+<p><strong>궤도 유형과 에너지</strong></p>
+<p>$$ E < 0: \\text{타원(또는 원) 궤도} \\quad , \\quad E = 0: \\text{포물선 탈출} \\quad , \\quad E > 0: \\text{쌍곡선 탈출} $$</p>
+</div>
+
+<p>아래 시뮬레이션에서 초기속도를 조절하고 <strong>발사</strong> 버튼을 눌러 비행체의 궤적을 관찰하세요. 궤적 색상은 속도를 나타냅니다 — 근지점에서 빠르고(붉은색), 원지점에서 느립니다(푸른색).</p>
+
+<div class="sim-container">
+  <canvas id="escapeCanvas" width="700" height="360"></canvas>
+  <div class="sim-controls">
+    <label>초기속도: <input type="range" id="escapeVelSlider" min="0.3" max="2.0" step="0.01" value="1.0"> <span id="escapeVelVal">7.9 km/s</span></label>
+    <button id="escapeLaunchBtn">발사</button>
+    <button id="escapeResetBtn">초기화</button>
+  </div>
+  <div class="sim-info" id="escapeInfo"></div>
+</div>
+
+<div class="info-box">
+<div class="box-title">[시뮬레이션 관찰 포인트]</div>
+<p><strong>v ≈ 5.5 km/s (0.7 v₁)</strong>: 비행체가 지구에 다시 충돌합니다 (아궤도)</p>
+<p><strong>v = 7.9 km/s (1.0 v₁)</strong>: 원형 궤도 — 인공위성 궤도의 기본형</p>
+<p><strong>v ≈ 9.5 km/s (1.2 v₁)</strong>: 타원 궤도 — 원지점이 발사 반대편에 형성</p>
+<p><strong>v = 11.2 km/s (√2 v₁)</strong>: 포물선 탈출 — 무한히 멀어지며 속도가 0에 수렴</p>
+<p><strong>v > 11.2 km/s</strong>: 쌍곡선 탈출 — 잔여 속도를 유지하며 탈출</p>
+</div>
+
 </div>
 </div>'''
 
