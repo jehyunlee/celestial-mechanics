@@ -337,15 +337,15 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 
     // Season labels
     ctx.fillStyle = '#556'; ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'center';
-    ctx.fillText('하지', lCx, lCy - orbitR - 6);
-    ctx.fillText('동지', lCx, lCy + orbitR + 12);
+    ctx.fillText('동지', lCx, lCy - orbitR - 6);
+    ctx.fillText('하지', lCx, lCy + orbitR + 12);
     ctx.fillText('춘분', lCx + orbitR + 6, lCy);
     ctx.fillText('추분', lCx - orbitR - 6, lCy);
 
-    // Earth position
+    // Earth position (CCW as seen from North Pole)
     const angle = TAU * (currentDay - 80) / 365;
     const ex = lCx + orbitR * Math.cos(angle);
-    const ey = lCy - orbitR * Math.sin(angle);
+    const ey = lCy + orbitR * Math.sin(angle);
     ctx.fillStyle = '#4488cc';
     ctx.beginPath(); ctx.arc(ex, ey, 6, 0, TAU); ctx.fill();
 
