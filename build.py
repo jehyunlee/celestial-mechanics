@@ -563,6 +563,7 @@ tmpl = ReportTemplate(
     sidebar_subtitle='대학 기초물리 · Interactive Textbook',
     og_url='https://jehyunlee.github.io/celestial-mechanics/',
     og_description='태양-지구-달 시스템의 천체역학을 인터랙티브 시뮬레이션으로 배우는 교재',
+    og_image_url='https://jehyunlee.github.io/celestial-mechanics/og-image.jpg',
 )
 
 chapters = [ch1, ch2, ch3, ch4, ch5, ch6, ch7]

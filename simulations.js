@@ -561,38 +561,56 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     ctx.beginPath(); ctx.arc(moonViewX + 20, moonViewY - 20, 6, 0, TAU); ctx.fill();
     ctx.beginPath(); ctx.arc(moonViewX - 5, moonViewY + 25, 10, 0, TAU); ctx.fill();
 
-    // Shadow overlay using clipping + ellipse terminator
+    // Shadow overlay using explicit point-by-point terminator tracing
+    // (avoids Canvas arc/ellipse direction ambiguity)
     ctx.save();
     ctx.beginPath(); ctx.arc(moonViewX, moonViewY, moonViewR, 0, TAU); ctx.clip();
 
-    // The terminator (shadow boundary) is an ellipse when projected onto the disk.
-    // cos(phase * TAU) determines the terminator's x-extent:
-    //   phase=0 (new): cos=1 → terminator at right edge → all dark
-    //   phase=0.25 (FQ): cos=0 → terminator at center → left half dark
-    //   phase=0.5 (full): cos=-1 → terminator at left edge → no dark
+    // c = cos(2π·phase): +1 at new, 0 at quarters, -1 at full
     const c = Math.cos(phase * TAU);
-    const rx = Math.max(Math.abs(c) * moonViewR, 0.1); // ellipse x-radius
+    const R = moonViewR;
+    const steps = 64;
 
+    // Terminator is an ellipse centered on the disk.
+    // Waxing: terminator x = +c·R·cos(a), dark = left limb → terminator
+    // Waning: terminator x = -c·R·cos(a), dark = terminator → right limb
     ctx.fillStyle = '#0a0e27';
     ctx.beginPath();
 
     if (phase < 0.5) {
-      // WAXING: dark on LEFT side, lit on right
-      // Left limb (semicircle): top → LEFT → bottom
-      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, true);
-      // Terminator (half-ellipse): bottom → top
-      //   c > 0 (crescent): curves right → large shadow → anticlockwise=true (through right)
-      //   c < 0 (gibbous): curves left → small shadow → anticlockwise=false (through left)
-      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, Math.PI/2, -Math.PI/2, c > 0);
+      // WAXING: shadow on LEFT (Northern Hemisphere: right side lit)
+      // 1) Left limb from top to bottom
+      for (let i = 0; i <= steps; i++) {
+        const a = Math.PI/2 - i * Math.PI / steps;
+        const x = moonViewX - R * Math.cos(a);
+        const y = moonViewY - R * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      // 2) Terminator from bottom to top
+      for (let i = 0; i <= steps; i++) {
+        const a = -Math.PI/2 + i * Math.PI / steps;
+        const x = moonViewX + c * R * Math.cos(a);
+        const y = moonViewY - R * Math.sin(a);
+        ctx.lineTo(x, y);
+      }
     } else {
-      // WANING: dark on RIGHT side, lit on left
-      // Right limb (semicircle): top → RIGHT → bottom
-      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, false);
-      // Terminator (half-ellipse): bottom → top
-      //   c < 0 (gibbous): curves right → overlap with limb → small shadow → anticlockwise=true
-      //   c > 0 (crescent): curves left → large shadow → anticlockwise=false
-      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, Math.PI/2, -Math.PI/2, c < 0);
+      // WANING: shadow on RIGHT (Northern Hemisphere: left side lit)
+      // 1) Right limb from top to bottom
+      for (let i = 0; i <= steps; i++) {
+        const a = Math.PI/2 - i * Math.PI / steps;
+        const x = moonViewX + R * Math.cos(a);
+        const y = moonViewY - R * Math.sin(a);
+        i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      // 2) Terminator from bottom to top (note: -c for waning)
+      for (let i = 0; i <= steps; i++) {
+        const a = -Math.PI/2 + i * Math.PI / steps;
+        const x = moonViewX - c * R * Math.cos(a);
+        const y = moonViewY - R * Math.sin(a);
+        ctx.lineTo(x, y);
+      }
     }
+    ctx.closePath();
     ctx.fill();
     ctx.restore();
 
