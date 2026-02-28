@@ -1,0 +1,1933 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>천체역학 인터랙티브 교재</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap');
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy: #1F3864;
+  --blue: #2E74B5;
+  --light-blue: #EBF5FB;
+  --red-bg: #FDF2F2;
+  --red-border: #C03939;
+  --sidebar-bg: #1a1a2e;
+  --sidebar-text: #c8d0e0;
+  --sidebar-active: #4fc3f7;
+  --text: #2d2d2d;
+  --muted: #666;
+  --border: #dde4ee;
+}
+
+body {
+  font-family: 'Noto Sans KR', 'Pretendard', sans-serif;
+  font-size: 15px;
+  color: var(--text);
+  line-height: 1.75;
+  background: #f5f7fa;
+  display: flex;
+}
+
+/* ── Progress bar ── */
+#progress-bar {
+  position: fixed; top: 0; left: 0; height: 3px;
+  background: linear-gradient(90deg, var(--blue), #4fc3f7);
+  width: 0%; z-index: 9999; transition: width 0.1s;
+}
+
+/* ── Sidebar ── */
+#sidebar {
+  width: 280px; min-width: 280px;
+  background: var(--sidebar-bg);
+  height: 100vh; position: fixed; top: 0; left: 0;
+  overflow-y: auto; z-index: 100;
+  transition: transform 0.3s;
+  display: flex; flex-direction: column;
+}
+
+#sidebar-header {
+  padding: 24px 20px 16px;
+  border-bottom: 1px solid #2e2e4a;
+}
+
+#sidebar-header h2 {
+  font-size: 13px; font-weight: 700;
+  color: #4fc3f7; line-height: 1.4;
+  letter-spacing: 0.02em;
+}
+#sidebar-header p {
+  font-size: 11px; color: #888; margin-top: 6px;
+}
+
+#toc { padding: 12px 0 24px; flex: 1; }
+
+.toc-chapter {
+  padding: 6px 20px 2px;
+  font-size: 12px; font-weight: 700;
+  color: #7ec8e3; text-transform: uppercase;
+  letter-spacing: 0.05em; margin-top: 8px;
+}
+
+.toc-section {
+  display: block; padding: 5px 20px 5px 28px;
+  font-size: 12.5px; color: var(--sidebar-text);
+  text-decoration: none; border-left: 3px solid transparent;
+  transition: all 0.2s;
+}
+.toc-section:hover { color: #fff; background: rgba(255,255,255,0.06); }
+.toc-section.active {
+  color: var(--sidebar-active);
+  border-left-color: var(--sidebar-active);
+  background: rgba(79,195,247,0.08);
+  font-weight: 600;
+}
+
+/* hamburger */
+#hamburger {
+  display: none; position: fixed; top: 14px; left: 14px;
+  z-index: 200; background: var(--navy); color: #fff;
+  border: none; border-radius: 6px; padding: 8px 12px;
+  font-size: 18px; cursor: pointer;
+}
+
+/* ── Main content ── */
+#main {
+  margin-left: 280px;
+  max-width: 860px;
+  padding: 0 0 60px;
+  flex: 1;
+}
+
+/* ── Hero cover ── */
+#hero {
+  height: 420px;
+  background-size: cover; background-position: center;
+  display: flex; align-items: flex-end;
+  background-color: var(--navy);
+}
+
+#hero-text {
+  background: linear-gradient(0deg, rgba(15,20,50,0.92) 0%, transparent 100%);
+  width: 100%; padding: 40px 48px 36px;
+}
+#hero-text h1 {
+  font-size: 28px; font-weight: 700; color: #fff;
+  line-height: 1.3;
+}
+#hero-text p { font-size: 15px; color: #fff; margin-top: 8px; }
+#hero-text .date { font-size: 13px; color: #fff; margin-top: 16px; }
+
+/* ── Chapter sections ── */
+.chapter {
+  background: #fff; margin: 32px 24px;
+  border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+  overflow: hidden;
+  opacity: 0; transform: translateY(24px);
+  transition: opacity 0.5s, transform 0.5s;
+}
+.chapter.visible { opacity: 1; transform: translateY(0); }
+
+.chapter-banner {
+  height: 220px;
+  background-size: cover; background-position: center top;
+  background-color: var(--navy);
+  display: flex; align-items: flex-end;
+}
+.chapter-banner-placeholder {
+  display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(135deg, var(--navy), var(--blue));
+}
+.chapter-banner-placeholder span { color: #fff; font-size: 18px; opacity: 0.6; }
+
+.chapter-body { padding: 36px 44px 40px; }
+
+h1.chapter-title {
+  font-size: 22px; font-weight: 700; color: var(--navy);
+  margin-bottom: 8px; padding-bottom: 12px;
+  border-bottom: 3px solid var(--blue);
+}
+
+h2.section-title {
+  font-size: 17px; font-weight: 700; color: var(--blue);
+  margin: 32px 0 10px; padding-left: 10px;
+  border-left: 4px solid var(--blue);
+}
+
+h3.sub-title {
+  font-size: 15px; font-weight: 700; color: var(--blue);
+  margin: 20px 0 8px;
+}
+
+p { margin-bottom: 14px; text-align: justify; }
+
+/* ── Info box ── */
+.info-box {
+  background: var(--light-blue);
+  border: 1.5px solid var(--blue);
+  border-radius: 8px; padding: 16px 20px;
+  margin: 20px 0;
+}
+.info-box .box-title {
+  font-weight: 700; color: var(--navy);
+  margin-bottom: 8px; font-size: 14px;
+}
+.info-box p { margin-bottom: 4px; font-size: 13.5px; }
+
+/* ── Challenge box ── */
+.challenge-box {
+  background: var(--red-bg);
+  border: 1.5px solid var(--red-border);
+  border-radius: 8px; padding: 16px 20px;
+  margin: 20px 0;
+}
+.challenge-box .box-title {
+  font-weight: 700; color: var(--red-border);
+  margin-bottom: 8px; font-size: 14px;
+}
+.challenge-box ul { padding-left: 18px; }
+.challenge-box li { font-size: 13.5px; color: #502020; margin-bottom: 5px; }
+
+/* ── Arrow summary ── */
+.arrow-summary {
+  background: linear-gradient(90deg, #fff8ee, #fff);
+  border-left: 4px solid #e08030;
+  padding: 12px 16px; margin: 20px 0;
+  border-radius: 0 8px 8px 0;
+  font-weight: 600; color: #603010;
+  font-size: 14px;
+}
+.arrow-icon { font-size: 16px; color: #c05028; margin-right: 4px; }
+
+/* ── Tables ── */
+.table-wrap { overflow-x: auto; margin: 20px 0; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+thead tr { background: var(--blue); }
+thead th {
+  color: #fff; padding: 9px 12px; font-weight: 600;
+  text-align: left; white-space: nowrap;
+}
+tbody td { padding: 8px 12px; border-bottom: 1px solid #dde4ee; }
+tr.alt-row td { background: #f2f7fb; }
+tbody tr:hover td { background: #e8f0f8; }
+
+/* ── Figures ── */
+.figure { text-align: center; margin: 24px 0; }
+.figure img { max-width: 100%; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+.figure-caption { font-size: 12.5px; font-weight: 700; color: var(--navy); margin-top: 8px; }
+.figure-source { font-size: 11.5px; color: var(--muted); font-style: italic; }
+.img-placeholder {
+  background: #eef2f8; color: #aaa; padding: 40px;
+  text-align: center; border-radius: 8px; font-size: 13px;
+}
+
+/* ── Section paper figure ── */
+.section-figure {
+  margin: 16px 0 24px;
+  text-align: center;
+}
+.section-figure img {
+  max-width: 90%;
+  max-height: 480px;
+  border-radius: 8px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+  border: 1px solid #e0e0e0;
+}
+.section-figure figcaption {
+  font-size: 11.5px;
+  color: #888;
+  margin-top: 8px;
+  font-style: italic;
+}
+
+/* ── Footnote superscript ── */
+.fn {
+  color: var(--blue); font-size: 10px; cursor: help;
+  font-weight: 600; vertical-align: super;
+}
+
+/* ── References ── */
+#references { background: #fff; margin: 32px 24px; border-radius: 12px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.07); padding: 36px 44px 40px; }
+#references h2 { font-size: 20px; font-weight: 700; color: var(--navy);
+  margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid var(--blue); }
+.ref-item { font-size: 12.5px; color: #333; padding: 5px 0 5px 20px;
+  border-bottom: 1px solid #f0f0f0; text-indent: -20px; margin-left: 20px; }
+.ref-item a { color: var(--blue); word-break: break-all; }
+
+/* ── Footer ── */
+footer { background: var(--navy); color: #aac; padding: 24px 44px;
+  font-size: 12px; text-align: center; margin: 0 24px 24px;
+  border-radius: 0 0 12px 12px; }
+
+/* ── Print ── */
+@media print {
+  #sidebar, #progress-bar, #hamburger { display: none !important; }
+  #main { margin-left: 0; }
+  .chapter { box-shadow: none; opacity: 1; transform: none; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  #sidebar { transform: translateX(-100%); }
+  #sidebar.open { transform: translateX(0); }
+  #main { margin-left: 0; }
+  #hamburger { display: block; }
+  .chapter-body { padding: 20px 18px 24px; }
+  #hero-text { padding: 24px 18px 20px; }
+  #hero-text h1 { font-size: 20px; }
+  #references { margin: 16px 8px; padding: 20px 16px; }
+  .chapter { margin: 16px 8px; }
+}
+
+/* ── Custom Simulation Styles ── */
+/* ── Simulation Controls ── */
+.sim-container {
+  background: #f8fafd;
+  border: 1px solid #dde4ee;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 24px 0;
+}
+.sim-container canvas {
+  display: block;
+  margin: 0 auto 12px;
+  border-radius: 8px;
+  background: #0a0e27;
+  max-width: 100%;
+}
+.sim-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 0;
+}
+.sim-controls label {
+  font-size: 13px;
+  color: #444;
+  font-weight: 500;
+}
+.sim-controls input[type="range"] {
+  width: 160px;
+  accent-color: #2E74B5;
+}
+.sim-controls button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 6px;
+  background: #2E74B5;
+  color: #fff;
+  font-size: 13px;
+  cursor: pointer;
+  font-weight: 600;
+}
+.sim-controls button:hover { background: #1F3864; }
+.sim-controls select {
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid #ccc;
+  font-size: 13px;
+}
+.sim-info {
+  text-align: center;
+  font-size: 13px;
+  color: #555;
+  margin-top: 8px;
+  font-weight: 500;
+}
+.sim-dual {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+.sim-dual canvas {
+  flex: 1;
+  min-width: 280px;
+  max-width: 340px;
+}
+.sim-label {
+  text-align: center;
+  font-size: 14px;
+  font-weight: 700;
+  color: #1F3864;
+  margin-bottom: 6px;
+}
+
+/* ── Scientist portraits ── */
+.scientist-card {
+  display: flex;
+  gap: 20px;
+  background: #faf8f4;
+  border: 1px solid #e8e0d4;
+  border-radius: 10px;
+  padding: 20px;
+  margin: 20px 0;
+  align-items: flex-start;
+}
+.scientist-card img {
+  width: 120px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid #c8b898;
+  box-shadow: 2px 2px 8px rgba(0,0,0,0.15);
+  flex-shrink: 0;
+}
+.scientist-info { flex: 1; }
+.scientist-info h4 {
+  font-size: 16px;
+  color: #4a3520;
+  margin-bottom: 4px;
+  font-weight: 700;
+}
+.scientist-info .years {
+  font-size: 12px;
+  color: #8a7050;
+  margin-bottom: 8px;
+  font-style: italic;
+}
+.scientist-info p {
+  font-size: 13.5px;
+  color: #3a2a1a;
+  text-align: left;
+}
+
+/* ── Math display ── */
+.math-block {
+  background: #f0f4f8;
+  border-left: 4px solid #2E74B5;
+  padding: 16px 20px;
+  margin: 16px 0;
+  border-radius: 0 8px 8px 0;
+  overflow-x: auto;
+}
+
+/* ── History timeline feel ── */
+.era-header {
+  background: linear-gradient(135deg, #f5f0e6, #ede5d8);
+  border: 1px solid #d4c8b0;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin: 20px 0 12px;
+  position: relative;
+}
+.era-header::before {
+  content: '';
+  position: absolute;
+  left: -8px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  background: #8B6914;
+  border-radius: 50%;
+  border: 3px solid #f5f0e6;
+}
+.era-header h3 {
+  font-size: 15px;
+  color: #5a3e10;
+  font-weight: 700;
+  margin: 0;
+  padding-left: 16px;
+}
+
+/* ── Responsive sim ── */
+@media (max-width: 768px) {
+  .scientist-card { flex-direction: column; align-items: center; text-align: center; }
+  .scientist-card img { width: 100px; height: 125px; }
+  .sim-controls { flex-direction: column; }
+  .sim-dual { flex-direction: column; align-items: center; }
+  .sim-dual canvas { max-width: 100%; }
+}
+
+</style>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"></script>
+</head>
+<body>
+<div id="progress-bar"></div>
+
+<nav id="sidebar">
+  <div id="sidebar-header">
+    <h2>천체역학<br>인터랙티브 교재</h2>
+    <p>대학 기초물리 · Interactive Textbook</p>
+  </div>
+  <div id="toc"><div class="toc-chapter">1. 천체역학의 역사</div>
+<a class="toc-section" href="#ch1">1. 천체역학의 역사</a>
+<a class="toc-section" href="#sec1-1">1.1 천동설: 프톨레마이오스</a>
+<a class="toc-section" href="#sec1-2">1.2 코페르니쿠스의 혁명</a>
+<a class="toc-section" href="#sec1-3">1.3 튀코 브라헤와 케플러</a>
+<a class="toc-section" href="#sec1-4">1.4 갈릴레오의 관측</a>
+<a class="toc-section" href="#sec1-5">1.5 뉴턴의 종합</a>
+<div class="toc-chapter">2. 만유인력의 법칙</div>
+<a class="toc-section" href="#ch2">2. 만유인력의 법칙</a>
+<a class="toc-section" href="#sec2-1">2.1 뉴턴의 만유인력</a>
+<a class="toc-section" href="#sec2-2">2.2 만유인력 시뮬레이션</a>
+<div class="toc-chapter">3. 공전과 자전</div>
+<a class="toc-section" href="#ch3">3. 공전과 자전</a>
+<a class="toc-section" href="#sec3-1">3.1 지구의 공전과 자전</a>
+<a class="toc-section" href="#sec3-2">3.2 달의 공전</a>
+<a class="toc-section" href="#sec3-3">3.3 궤도 시뮬레이션</a>
+<div class="toc-chapter">4. 연중 일사량 변화</div>
+<a class="toc-section" href="#ch4">4. 연중 일사량 변화</a>
+<a class="toc-section" href="#sec4-1">4.1 지축 경사와 계절</a>
+<a class="toc-section" href="#sec4-2">4.2 일사량 시뮬레이션</a>
+<div class="toc-chapter">5. 달의 위상과 운동</div>
+<a class="toc-section" href="#ch5">5. 달의 위상과 운동</a>
+<a class="toc-section" href="#sec5-1">5.1 삭망월과 항성월</a>
+<a class="toc-section" href="#sec5-2">5.2 달의 위상 시뮬레이션</a>
+<div class="toc-chapter">6. 일식과 월식</div>
+<a class="toc-section" href="#ch6">6. 일식과 월식</a>
+<a class="toc-section" href="#sec6-1">6.1 식 현상의 원리</a>
+<a class="toc-section" href="#sec6-2">6.2 일식/월식 시뮬레이션</a>
+<div class="toc-chapter">7. 천동설 vs 지동설</div>
+<a class="toc-section" href="#ch7">7. 천동설 vs 지동설</a>
+<a class="toc-section" href="#sec7-1">7.1 두 모델의 비교</a>
+<a class="toc-section" href="#sec7-2">7.2 역행운동 시뮬레이션</a></div>
+</nav>
+
+<button id="hamburger">&#9776;</button>
+
+<main id="main">
+
+<section id="cover">
+<div id="hero" style="">
+  <div id="hero-text">
+    <h1>천체역학 인터랙티브 교재</h1>
+    <p>태양, 지구, 달의 춤 — 만유인력에서 일식까지</p>
+    <div class="date">2026.02.28.</div>
+  </div>
+</div>
+</section>
+
+<div class="chapter" id="ch1">
+<div class="chapter-banner" style="background:linear-gradient(135deg,#1a1a3e,#2a1a4e,#1a2a4e);height:200px;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;color:#fff;">
+    <div style="font-size:40px;margin-bottom:8px;">&#x2604; &#x2609; &#x263D;</div>
+    <div style="font-size:14px;opacity:0.7;">From Ancient Skies to Universal Gravitation</div>
+  </div>
+</div>
+<div class="chapter-body">
+<h1 class="chapter-title" id="ch1-title">제1장. 천체역학의 역사</h1>
+<p>인류는 밤하늘의 별과 행성의 움직임을 관찰하며 우주의 구조를 이해하려 했습니다. 천동설(geocentric model)에서 지동설(heliocentric model)로의 전환은 과학 혁명의 핵심이었으며, 이 과정에서 탄생한 물리 법칙들은 오늘날 우주 탐사의 기반이 되었습니다.</p>
+
+<div class="era-header"><h3>고대 ~ 중세: 천동설의 시대</h3></div>
+
+<h2 class="section-title" id="sec1-1">1.1 천동설: 프톨레마이오스의 우주</h2>
+<div class="scientist-card">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/0/0e/Ptolemy_16century.jpg" alt="클라우디오스 프톨레마이오스 (Claudius Ptolemy)" loading="lazy" onerror="this.style.display='none'">
+  <div class="scientist-info">
+    <h4>클라우디오스 프톨레마이오스 (Claudius Ptolemy)</h4>
+    <div class="years">c. 100 ~ c. 170 AD, 알렉산드리아</div>
+    <p>고대 그리스-로마의 천문학자. 저서 《알마게스트(Almagest)》에서 지구중심 우주 모델을 체계화했습니다. 주전원(epicycle)과 이심원(eccentric), 등화점(equant)을 도입하여 행성의 역행운동을 설명했으며, 이 모델은 약 1400년간 서양 천문학의 표준이었습니다.</p>
+  </div>
+</div>
+
+<p>프톨레마이오스의 천동설(Ptolemaic system)에서 지구는 우주의 중심에 정지해 있고, 태양, 달, 행성, 항성이 지구 주위를 공전합니다. 행성이 때때로 하늘에서 뒤로 움직이는 것처럼 보이는 <strong>역행운동(retrograde motion)</strong>을 설명하기 위해, 행성이 큰 원(주전원, deferent) 위의 작은 원(이심원, epicycle) 위에서 움직인다고 가정했습니다.</p>
+
+<div class="info-box">
+<div class="box-title">[프톨레마이오스 모델의 핵심 요소]</div>
+<p><strong>주전원(Deferent)</strong>: 지구를 중심으로 한 큰 원궤도</p>
+<p><strong>이심원(Epicycle)</strong>: 주전원 위의 점을 중심으로 한 작은 원궤도</p>
+<p><strong>등화점(Equant)</strong>: 지구에서 떨어진 점으로, 이 점에서 보면 행성이 등속으로 움직이는 것처럼 보임</p>
+</div>
+
+<div class="era-header"><h3>16세기: 지동설 혁명</h3></div>
+
+<h2 class="section-title" id="sec1-2">1.2 코페르니쿠스의 혁명</h2>
+<div class="scientist-card">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/f/f2/Nikolaus_Kopernikus.jpg" alt="니콜라우스 코페르니쿠스 (Nicolaus Copernicus)" loading="lazy" onerror="this.style.display='none'">
+  <div class="scientist-info">
+    <h4>니콜라우스 코페르니쿠스 (Nicolaus Copernicus)</h4>
+    <div class="years">1473 ~ 1543, 폴란드</div>
+    <p>폴란드의 천문학자이자 성직자. 1543년 출간된 《천구의 회전에 관하여(De Revolutionibus Orbium Coelestium)》에서 태양중심설을 제안했습니다. 지구가 태양 주위를 공전한다는 이 혁명적 주장은 당시 교회와 학계의 격렬한 반대에 부딪혔으나, 현대 천문학의 출발점이 되었습니다.</p>
+  </div>
+</div>
+
+<p>코페르니쿠스는 태양을 우주의 중심에 놓고 지구를 포함한 행성들이 태양 주위를 공전한다고 주장했습니다. 이 모델은 역행운동을 자연스럽게 설명합니다 — 지구가 외행성을 "추월"할 때, 그 행성이 일시적으로 뒤로 가는 것처럼 보이는 것입니다. 하지만 코페르니쿠스는 여전히 원 궤도를 사용했기 때문에, 정밀한 예측을 위해 일부 주전원이 필요했습니다.</p>
+
+<h2 class="section-title" id="sec1-3">1.3 튀코 브라헤와 요하네스 케플러</h2>
+<div class="scientist-card">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/2/2b/Tycho_Brahe.JPG" alt="튀코 브라헤 (Tycho Brahe)" loading="lazy" onerror="this.style.display='none'">
+  <div class="scientist-info">
+    <h4>튀코 브라헤 (Tycho Brahe)</h4>
+    <div class="years">1546 ~ 1601, 덴마크</div>
+    <p>육안 관측 시대 최고의 천문학자. 우라니보르그 천문대에서 20년간 축적한 정밀 관측 데이터는 케플러의 법칙 발견에 결정적 역할을 했습니다. 지구는 정지하고 행성은 태양을, 태양은 지구를 돈다는 절충적 모델(Tychonic system)을 제안하기도 했습니다.</p>
+  </div>
+</div>
+
+<div class="scientist-card">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/d/d4/Johannes_Kepler_1610.jpg" alt="요하네스 케플러 (Johannes Kepler)" loading="lazy" onerror="this.style.display='none'">
+  <div class="scientist-info">
+    <h4>요하네스 케플러 (Johannes Kepler)</h4>
+    <div class="years">1571 ~ 1630, 독일</div>
+    <p>독일의 천문학자이자 수학자. 브라헤의 정밀 관측 데이터를 분석하여 행성운동의 세 법칙을 발견했습니다. 특히 행성 궤도가 원이 아닌 타원이라는 제1법칙의 발견은 천문학의 패러다임을 완전히 바꾸었습니다.</p>
+  </div>
+</div>
+
+<div class="math-block">
+<p><strong>케플러의 행성운동 법칙</strong></p>
+<p><strong>제1법칙 (타원 궤도의 법칙)</strong>: 행성은 태양을 한 초점으로 하는 타원 궤도를 그린다.</p>
+<p>$$ r = \frac{a(1-e^2)}{1 + e\cos\theta} $$</p>
+<p>여기서 \(a\)는 장반경, \(e\)는 이심률, \(\theta\)는 진근점이각입니다.</p>
+<p><strong>제2법칙 (면적 속도 일정의 법칙)</strong>: 행성과 태양을 잇는 선분이 같은 시간에 같은 면적을 쓸고 지나간다.</p>
+<p>$$ \frac{dA}{dt} = \frac{L}{2m} = \text{const.} $$</p>
+<p><strong>제3법칙 (조화의 법칙)</strong>: 행성의 공전주기의 제곱은 궤도 장반경의 세제곱에 비례한다.</p>
+<p>$$ T^2 = \frac{4\pi^2}{GM} a^3 $$</p>
+</div>
+
+<h2 class="section-title" id="sec1-4">1.4 갈릴레오의 관측적 증거</h2>
+<div class="scientist-card">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/d/d4/Justus_Sustermans_-_Portrait_of_Galileo_Galilei%2C_1636.jpg" alt="갈릴레오 갈릴레이 (Galileo Galilei)" loading="lazy" onerror="this.style.display='none'">
+  <div class="scientist-info">
+    <h4>갈릴레오 갈릴레이 (Galileo Galilei)</h4>
+    <div class="years">1564 ~ 1642, 이탈리아</div>
+    <p>이탈리아의 물리학자이자 천문학자. 1609년 망원경을 천체 관측에 처음 사용하여 목성의 위성 4개(갈릴레이 위성), 금성의 위상 변화, 달의 산과 크레이터, 태양의 흑점 등을 발견했습니다. 이 관측들은 지동설의 강력한 관측적 증거가 되었습니다.</p>
+  </div>
+</div>
+
+<div class="info-box">
+<div class="box-title">[갈릴레오의 주요 관측 증거]</div>
+<p><strong>목성의 위성</strong>: 지구가 아닌 다른 천체를 공전하는 물체의 존재 → 모든 것이 지구 중심으로 도는 것은 아님</p>
+<p><strong>금성의 위상 변화</strong>: 천동설로는 설명 불가한 "보름금성" 관측 → 금성이 태양 주위를 돈다는 증거</p>
+<p><strong>태양의 흑점</strong>: 태양도 자전함 → 천체의 완전성에 대한 반론</p>
+<p><strong>달 표면의 요철</strong>: 천체가 완벽한 구가 아님 → 아리스토텔레스 천문학 반박</p>
+</div>
+
+<div class="era-header"><h3>17세기: 뉴턴의 대통합</h3></div>
+
+<h2 class="section-title" id="sec1-5">1.5 뉴턴의 종합: 만유인력</h2>
+<div class="scientist-card">
+  <img src="https://upload.wikimedia.org/wikipedia/commons/3/3b/Portrait_of_Sir_Isaac_Newton%2C_1689.jpg" alt="아이작 뉴턴 (Isaac Newton)" loading="lazy" onerror="this.style.display='none'">
+  <div class="scientist-info">
+    <h4>아이작 뉴턴 (Isaac Newton)</h4>
+    <div class="years">1643 ~ 1727, 영국</div>
+    <p>영국의 물리학자이자 수학자. 1687년 출간된 《프린키피아 마테마티카(Principia Mathematica)》에서 운동의 3법칙과 만유인력의 법칙을 발표했습니다. 사과가 떨어지는 것과 달이 지구를 도는 것이 같은 힘에 의한 현상임을 밝혀, 지상 역학과 천체 역학을 하나로 통합했습니다.</p>
+  </div>
+</div>
+
+<p>뉴턴은 케플러의 법칙들이 하나의 근본 원리 — <strong>만유인력(Universal Gravitation)</strong> — 에서 유도될 수 있음을 증명했습니다. 모든 질량을 가진 물체는 서로 끌어당기며, 그 힘의 크기는 두 질량의 곱에 비례하고 거리의 제곱에 반비례합니다.</p>
+
+<div class="math-block">
+<p><strong>뉴턴의 만유인력 법칙</strong></p>
+<p>$$ F = G\frac{Mm}{r^2} $$</p>
+<p>여기서 \(G = 6.674 \times 10^{-11} \, \text{N} \cdot \text{m}^2 / \text{kg}^2\)는 만유인력 상수, \(M\)과 \(m\)은 두 물체의 질량, \(r\)은 두 물체 중심 사이의 거리입니다.</p>
+</div>
+
+<div class="arrow-summary"><span class="arrow-icon">&#9838;</span> 프톨레마이오스의 복잡한 주전원 체계 → 코페르니쿠스의 태양중심설 → 케플러의 타원 궤도 → 뉴턴의 만유인력: 2000년에 걸친 천문학의 발전은 점점 더 단순하고 통합적인 설명을 향해 나아갔습니다.</div>
+</div>
+</div>
+<div class="chapter" id="ch2">
+<div class="chapter-banner" style="background:linear-gradient(135deg,#0a1628,#1a2a4e);height:180px;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;color:#fff;font-size:24px;">
+    $$ F = G\frac{Mm}{r^2} $$
+  </div>
+</div>
+<div class="chapter-body">
+<h1 class="chapter-title" id="ch2-title">제2장. 만유인력의 법칙</h1>
+
+<h2 class="section-title" id="sec2-1">2.1 뉴턴의 만유인력</h2>
+<p>만유인력(Universal Gravitation)은 질량을 가진 모든 물체 사이에 작용하는 인력입니다. 뉴턴은 사과가 떨어지는 현상과 달이 지구 주위를 도는 현상이 <strong>같은 힘</strong>에 의한 것임을 깨달았습니다.</p>
+
+<div class="math-block">
+<p><strong>중력장(Gravitational Field)</strong></p>
+<p>질량 \(M\)인 물체가 만드는 중력장의 세기:</p>
+<p>$$ \vec{g} = -\frac{GM}{r^2} \hat{r} $$</p>
+<p><strong>중력 위치에너지(Gravitational Potential Energy)</strong></p>
+<p>$$ U = -\frac{GMm}{r} $$</p>
+<p>이 에너지가 음수인 이유는 무한히 먼 곳을 기준(\(U=0\))으로 삼기 때문입니다. 두 물체가 가까울수록 에너지가 더 낮습니다.</p>
+</div>
+
+<div class="info-box">
+<div class="box-title">[태양계 주요 천체의 만유인력]</div>
+<p><strong>태양-지구</strong>: \(F = 3.54 \times 10^{22}\) N (거리 1 AU = 1.496 × 10¹¹ m)</p>
+<p><strong>지구-달</strong>: \(F = 1.98 \times 10^{20}\) N (거리 3.844 × 10⁸ m)</p>
+<p><strong>태양-달</strong>: \(F = 4.34 \times 10^{20}\) N — 흥미롭게도 태양이 달을 당기는 힘이 지구가 달을 당기는 힘의 약 2.2배!</p>
+</div>
+
+<p>그렇다면 왜 달이 태양 쪽으로 날아가지 않을까요? 달은 태양 주위를 도는 지구와 함께 공전하고 있기 때문입니다. 달은 지구와 함께 태양 주위를 돌면서, <em>동시에</em> 지구 주위를 돕니다.</p>
+
+<div class="math-block">
+<p><strong>원 궤도의 조건 (뉴턴의 통찰)</strong></p>
+<p>만유인력이 구심력 역할을 합니다:</p>
+<p>$$ \frac{GMm}{r^2} = \frac{mv^2}{r} \quad \Rightarrow \quad v = \sqrt{\frac{GM}{r}} $$</p>
+<p>이를 \(v = 2\pi r / T\)와 결합하면 케플러의 제3법칙이 유도됩니다:</p>
+<p>$$ T^2 = \frac{4\pi^2}{GM} r^3 $$</p>
+</div>
+
+<h2 class="section-title" id="sec2-2">2.2 만유인력 시뮬레이션</h2>
+<p>아래 시뮬레이션에서 태양-지구 간 거리와 지구의 질량을 조절하며 만유인력의 크기 변화를 관찰해보세요. 거리를 2배로 늘리면 힘은 1/4로 줄어들고(역제곱 법칙), 질량을 2배로 늘리면 힘도 2배가 됩니다.</p>
+
+<div class="sim-container">
+  <canvas id="gravityCanvas" width="700" height="280"></canvas>
+  <div class="sim-controls">
+    <label>태양-지구 거리: <input type="range" id="gravityDist" min="0.5" max="3" step="0.1" value="1"> <span id="gravDistVal">1.0</span> AU</label>
+    <label>지구 질량 배수: <input type="range" id="gravityMass" min="0.5" max="3" step="0.1" value="1"> <span id="gravMassVal">1.0</span>x</label>
+  </div>
+  <div class="sim-info" id="gravityInfo"></div>
+</div>
+</div>
+</div>
+<div class="chapter" id="ch3">
+<div class="chapter-banner" style="background:linear-gradient(135deg,#0a1628,#0a2040);height:180px;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;color:#fff;">
+    <div style="font-size:36px;">&#x1F30D; &#x2192; &#x2609;</div>
+    <div style="font-size:14px;opacity:0.7;margin-top:8px;">Orbital Mechanics of the Sun-Earth-Moon System</div>
+  </div>
+</div>
+<div class="chapter-body">
+<h1 class="chapter-title" id="ch3-title">제3장. 공전과 자전</h1>
+
+<h2 class="section-title" id="sec3-1">3.1 지구의 공전과 자전</h2>
+
+<p><strong>지구의 공전(Revolution)</strong>은 태양 주위를 약 365.25일에 한 바퀴 도는 운동입니다. 궤도는 거의 원에 가까운 타원이며, 이심률은 \(e = 0.0167\)로 매우 작습니다.</p>
+
+<div class="info-box">
+<div class="box-title">[지구 공전 궤도 매개변수]</div>
+<p>장반경: \(a = 1.496 \times 10^{11}\) m (1 AU)</p>
+<p>이심률: \(e = 0.0167\)</p>
+<p>근일점(1월 초): \(r_{min} = a(1-e) = 1.471 \times 10^{11}\) m</p>
+<p>원일점(7월 초): \(r_{max} = a(1+e) = 1.521 \times 10^{11}\) m</p>
+<p>공전 속도: 평균 29.78 km/s (근일점에서 약간 빠르고, 원일점에서 약간 느림 — 케플러 제2법칙)</p>
+</div>
+
+<p><strong>지구의 자전(Rotation)</strong>은 지축을 중심으로 한 회전입니다. 항성일(sidereal day)은 23시간 56분 4초이며, 이는 먼 별을 기준으로 한 회전 주기입니다. 우리가 사용하는 태양일(solar day) 24시간은 태양을 기준으로 한 것으로, 공전 때문에 약 4분이 추가됩니다.</p>
+
+<div class="math-block">
+<p><strong>자전과 공전의 관계</strong></p>
+<p>$$ \frac{1}{T_{\text{solar}}} = \frac{1}{T_{\text{sidereal}}} - \frac{1}{T_{\text{orbital}}} $$</p>
+<p>$$ \frac{1}{24\text{h}} = \frac{1}{23.934\text{h}} - \frac{1}{8766\text{h}} $$</p>
+</div>
+
+<h2 class="section-title" id="sec3-2">3.2 달의 공전</h2>
+<p>달은 지구 주위를 약 27.32일(항성월, sidereal month)에 한 바퀴 돕니다. 그러나 삭(신월)에서 다음 삭까지의 주기인 삭망월(synodic month)은 약 29.53일입니다. 이 차이는 지구가 태양 주위를 공전하기 때문에, 달이 한 바퀴를 돈 후 추가로 약 2.2일을 더 돌아야 태양-지구-달의 상대적 배치가 원래대로 돌아오기 때문입니다.</p>
+
+<div class="math-block">
+<p><strong>항성월과 삭망월의 관계</strong></p>
+<p>$$ \frac{1}{T_{\text{syn}}} = \frac{1}{T_{\text{sid}}} - \frac{1}{T_{\text{Earth}}} $$</p>
+<p>$$ \frac{1}{29.53} = \frac{1}{27.32} - \frac{1}{365.25} $$</p>
+</div>
+
+<p>달은 <strong>동주기 자전(synchronous rotation)</strong>을 합니다. 즉, 자전 주기와 공전 주기가 같아서 항상 같은 면을 지구에 보여줍니다. 이는 조석력(tidal force)에 의한 조석 잠김(tidal locking) 현상의 결과입니다.</p>
+
+<h2 class="section-title" id="sec3-3">3.3 태양-지구-달 궤도 시뮬레이션</h2>
+<p>아래 시뮬레이션은 태양 주위를 도는 지구와, 지구 주위를 도는 달의 궤도 운동을 보여줍니다. 속도를 조절하며 공전 주기를 관찰해보세요. 지구의 궤도는 타원(\(e=0.0167\))이며, 근일점에서 약간 빨라지는 것을 확인할 수 있습니다.</p>
+
+<div class="sim-container">
+  <canvas id="orbitalCanvas" width="700" height="500"></canvas>
+  <div class="sim-controls">
+    <button id="orbitalPlayPause">⏸ 일시정지</button>
+    <label>속도: <input type="range" id="orbitalSpeed" min="0.2" max="5" step="0.2" value="1"> <span id="orbSpeedVal">1.0</span>x</label>
+  </div>
+  <div class="sim-info" id="orbitalInfo"></div>
+</div>
+</div>
+</div>
+<div class="chapter" id="ch4">
+<div class="chapter-banner" style="background:linear-gradient(135deg,#1a2040,#2a3060);height:180px;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;color:#fff;">
+    <div style="font-size:32px;">&#x2600; &#x1F30F;</div>
+    <div style="font-size:14px;opacity:0.7;margin-top:8px;">Solar Irradiance at Seoul (37.5&deg;N)</div>
+  </div>
+</div>
+<div class="chapter-body">
+<h1 class="chapter-title" id="ch4-title">제4장. 연중 일사량 변화</h1>
+
+<h2 class="section-title" id="sec4-1">4.1 지축 경사와 계절</h2>
+<p>계절이 바뀌는 근본 원인은 지구의 <strong>자전축 경사(obliquity)</strong>입니다. 지구의 자전축은 궤도면(황도면)에 대해 약 23.44° 기울어져 있으며, 이 기울기의 방향은 공전 도중 거의 변하지 않습니다(세차운동 제외).</p>
+
+<p>이로 인해:</p>
+<ul style="margin:10px 0 10px 20px;">
+<li>여름: 태양이 높이 뜨고 낮이 길어짐 → 단위면적당 일사량 증가</li>
+<li>겨울: 태양이 낮게 뜨고 낮이 짧아짐 → 단위면적당 일사량 감소</li>
+</ul>
+
+<div class="math-block">
+<p><strong>태양 적위(Solar Declination)</strong></p>
+<p>$$ \delta = 23.44° \times \sin\left(\frac{360°}{365}(d - 81)\right) $$</p>
+<p>여기서 \(d\)는 1월 1일부터 센 날짜 수입니다. 춘분(\(d \approx 80\))에서 \(\delta = 0\), 하지(\(d \approx 172\))에서 \(\delta = +23.44°\)입니다.</p>
+
+<p><strong>태양 최대 고도(Maximum Solar Elevation)</strong></p>
+<p>$$ \alpha_{max} = 90° - |\phi - \delta| $$</p>
+<p>서울(\(\phi = 37.5°\text{N}\))에서의 하지 최대 고도: \(90° - |37.5° - 23.44°| = 75.94°\)</p>
+<p>서울에서의 동지 최대 고도: \(90° - |37.5° + 23.44°| = 29.06°\)</p>
+
+<p><strong>대기 질량(Air Mass)과 일사량</strong></p>
+<p>$$ AM = \frac{1}{\sin(\alpha)} \quad , \quad I = S_0 \cdot \sin(\alpha) \cdot 0.7^{AM^{0.678}} $$</p>
+<p>여기서 \(S_0 = 1361 \, \text{W/m}^2\)은 태양 상수, \(\alpha\)는 태양 고도각입니다.</p>
+</div>
+
+<div class="info-box">
+<div class="box-title">[서울의 계절별 일조 특성]</div>
+<p><strong>하지(6월 21일경)</strong>: 낮 길이 ~14.9시간, 최대 고도 ~76°, 최대 일사량 ~930 W/m²</p>
+<p><strong>춘분/추분</strong>: 낮 길이 ~12시간, 최대 고도 ~52.5°, 최대 일사량 ~750 W/m²</p>
+<p><strong>동지(12월 22일경)</strong>: 낮 길이 ~9.5시간, 최대 고도 ~29°, 최대 일사량 ~430 W/m²</p>
+</div>
+
+<h2 class="section-title" id="sec4-2">4.2 서울 연중 일사량 시뮬레이션</h2>
+<p>왼쪽 그림은 지구의 공전 궤도에서 현재 위치를, 오른쪽 그래프는 서울의 연간 최대 일사량(주황선)과 낮 길이 비율(파란 점선)을 보여줍니다. 슬라이더를 조작하여 계절에 따른 변화를 관찰해보세요.</p>
+
+<div class="sim-container">
+  <canvas id="irradianceCanvas" width="700" height="340"></canvas>
+  <div class="sim-controls">
+    <label>날짜 (일차): <input type="range" id="daySlider" min="0" max="364" step="1" value="172"> <span id="dayVal">172</span></label>
+  </div>
+  <div class="sim-info" id="irradianceInfo"></div>
+</div>
+</div>
+</div>
+<div class="chapter" id="ch5">
+<div class="chapter-banner" style="background:linear-gradient(135deg,#0a0e20,#1a1a3a);height:180px;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;color:#fff;">
+    <div style="font-size:36px;">&#x1F311; &#x1F312; &#x1F313; &#x1F314; &#x1F315; &#x1F316; &#x1F317; &#x1F318;</div>
+    <div style="font-size:14px;opacity:0.7;margin-top:8px;">Lunar Phases and Diurnal Motion</div>
+  </div>
+</div>
+<div class="chapter-body">
+<h1 class="chapter-title" id="ch5-title">제5장. 달의 위상과 운동</h1>
+
+<h2 class="section-title" id="sec5-1">5.1 삭망월과 항성월</h2>
+<p><strong>달의 위상(lunar phase)</strong>은 태양-지구-달의 상대적 위치에 따라 결정됩니다. 태양 빛을 받는 달의 밝은 면 중 지구에서 보이는 부분의 비율이 달라지면서 위상이 변합니다.</p>
+
+<div class="table-wrap"><table>
+<thead><tr><th>위상</th><th>태양-달 이각</th><th>월출</th><th>남중</th><th>월몰</th><th>한밤 가시성</th></tr></thead>
+<tbody>
+<tr><td>삭 (신월, New Moon)</td><td>0°</td><td>~06시</td><td>~12시</td><td>~18시</td><td>불가</td></tr>
+<tr class="alt-row"><td>초승달 (Waxing Crescent)</td><td>~45°</td><td>~09시</td><td>~15시</td><td>~21시</td><td>초저녁</td></tr>
+<tr><td>상현달 (First Quarter)</td><td>90°</td><td>~12시</td><td>~18시</td><td>~00시</td><td>전반야</td></tr>
+<tr class="alt-row"><td>상현망간 (Waxing Gibbous)</td><td>~135°</td><td>~15시</td><td>~21시</td><td>~03시</td><td>대부분</td></tr>
+<tr><td>망 (보름달, Full Moon)</td><td>180°</td><td>~18시</td><td>~00시</td><td>~06시</td><td>밤새</td></tr>
+<tr class="alt-row"><td>하현망간 (Waning Gibbous)</td><td>~225°</td><td>~21시</td><td>~03시</td><td>~09시</td><td>후반야</td></tr>
+<tr><td>하현달 (Last Quarter)</td><td>270°</td><td>~00시</td><td>~06시</td><td>~12시</td><td>후반야</td></tr>
+<tr class="alt-row"><td>그믐달 (Waning Crescent)</td><td>~315°</td><td>~03시</td><td>~09시</td><td>~15시</td><td>새벽</td></tr>
+</tbody>
+</table></div>
+
+<p><strong>달의 일주운동</strong>: 달은 매일 약 50분씩 늦게 뜹니다. 이는 달이 하루에 약 12.2° 동쪽으로 이동하기 때문입니다(360° ÷ 29.53일 ≈ 12.2°/일). 지구 자전으로 인해 이 12.2°를 추가로 돌려면 약 50분이 필요합니다.</p>
+
+<div class="math-block">
+<p><strong>달의 일일 지연시간</strong></p>
+<p>$$ \Delta t = \frac{360° / T_{syn}}{360° / 24\text{h}} = \frac{24\text{h}}{T_{syn}} \approx \frac{24}{29.53} \approx 0.81 \text{h} \approx 49 \text{min} $$</p>
+</div>
+
+<h2 class="section-title" id="sec5-2">5.2 달의 위상 시뮬레이션</h2>
+<p>왼쪽은 위에서 본 태양-지구-달 배치(태양빛은 왼쪽에서 옵니다), 오른쪽은 지구에서 바라본 달의 모습입니다. 날짜 슬라이더를 조절하여 29.53일의 삭망월 동안 달의 위상 변화를 관찰해보세요.</p>
+
+<div class="sim-container">
+  <canvas id="lunarCanvas" width="700" height="340"></canvas>
+  <div class="sim-controls">
+    <label>삭망월 일차: <input type="range" id="lunarDay" min="0" max="29.5" step="0.1" value="0"> <span id="lunarDayVal">0.0</span>일</label>
+  </div>
+  <div class="sim-info" id="lunarInfo"></div>
+</div>
+</div>
+</div>
+<div class="chapter" id="ch6">
+<div class="chapter-banner" style="background:linear-gradient(135deg,#0a0a1a,#1a0a1a);height:180px;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;color:#fff;">
+    <div style="font-size:40px;">&#x1F311;&#x2600;&#xFE0F;</div>
+    <div style="font-size:14px;opacity:0.7;margin-top:8px;">Solar and Lunar Eclipses</div>
+  </div>
+</div>
+<div class="chapter-body">
+<h1 class="chapter-title" id="ch6-title">제6장. 일식과 월식</h1>
+
+<h2 class="section-title" id="sec6-1">6.1 식 현상의 원리</h2>
+<p><strong>일식(Solar Eclipse)</strong>은 달이 태양과 지구 사이에 와서 태양을 가리는 현상이며, <strong>월식(Lunar Eclipse)</strong>은 지구가 태양과 달 사이에 와서 달이 지구의 그림자에 들어가는 현상입니다.</p>
+
+<p>그런데 왜 매달 일식과 월식이 일어나지 않을까요? 달의 궤도면이 황도면(지구 공전 궤도면)에 대해 약 <strong>5.145°</strong> 기울어져 있기 때문입니다. 달이 황도면을 지나는 점을 <strong>교점(node)</strong>이라 하며, 식은 삭이나 망이 교점 근처에서 일어날 때만 발생합니다.</p>
+
+<div class="info-box">
+<div class="box-title">[식의 종류]</div>
+<p><strong>개기일식(Total Solar Eclipse)</strong>: 달의 본영(umbra)이 지구 표면에 도달. 관측 폭 ~100-200km. 평균 18개월마다 발생하나 같은 장소에서는 약 375년에 1회.</p>
+<p><strong>부분일식(Partial Solar Eclipse)</strong>: 반영(penumbra)만 도달. 비교적 자주 관측 가능.</p>
+<p><strong>금환일식(Annular Solar Eclipse)</strong>: 달이 원일점 근처에 있어 시직경이 태양보다 작을 때 발생. 태양의 가장자리가 고리처럼 보임.</p>
+<p><strong>개기월식(Total Lunar Eclipse)</strong>: 달 전체가 지구의 본영에 진입. 달이 붉게 물드는 "블러드 문" 현상. 지구 대기를 통과한 붉은빛이 달에 도달하기 때문.</p>
+</div>
+
+<div class="math-block">
+<p><strong>식 조건과 사로스 주기(Saros Cycle)</strong></p>
+<p>식이 반복되는 주기(사로스 주기):</p>
+<p>$$ T_{Saros} = 223 \times T_{syn} = 242 \times T_{dra} = 239 \times T_{ano} \approx 6585.3 \text{일} \approx 18\text{년} 11\text{일} $$</p>
+<p>여기서 \(T_{syn}\)은 삭망월, \(T_{dra}\)은 교점월(27.21일), \(T_{ano}\)은 근점월(27.55일)입니다.</p>
+<p>이 세 주기가 거의 정확히 정수배로 일치하기 때문에, 약 18년 11일마다 비슷한 조건의 식이 반복됩니다.</p>
+</div>
+
+<h2 class="section-title" id="sec6-2">6.2 일식/월식 시뮬레이션</h2>
+<p>아래 시뮬레이션은 일식과 월식의 기하학적 조건을 보여줍니다. 달의 궤도 경사각 슬라이더를 조절하여, 경사각이 0°일 때(매달 식 발생)와 5°일 때(대부분 식 불발)의 차이를 비교해보세요.</p>
+
+<div class="sim-container">
+  <canvas id="eclipseCanvas" width="700" height="300"></canvas>
+  <div class="sim-controls">
+    <label>유형: <select id="eclipseType">
+      <option value="solar">일식 (Solar Eclipse)</option>
+      <option value="lunar">월식 (Lunar Eclipse)</option>
+    </select></label>
+    <label>달 궤도 경사: <input type="range" id="eclipseIncl" min="0" max="8" step="0.1" value="5.1"> <span id="eclInclVal">5.1</span>°</label>
+  </div>
+  <div class="sim-info" id="eclipseInfo"></div>
+</div>
+</div>
+</div>
+<div class="chapter" id="ch7">
+<div class="chapter-banner" style="background:linear-gradient(135deg,#1a1a3e,#2a2a4e);height:180px;display:flex;align-items:center;justify-content:center;">
+  <div style="text-align:center;color:#fff;">
+    <div style="font-size:16px;opacity:0.8;">&#x1F30D;☀️ vs ☀️&#x1F30D;</div>
+    <div style="font-size:14px;opacity:0.7;margin-top:8px;">Geocentric vs Heliocentric: The Great Debate</div>
+  </div>
+</div>
+<div class="chapter-body">
+<h1 class="chapter-title" id="ch7-title">제7장. 천동설 vs 지동설</h1>
+
+<h2 class="section-title" id="sec7-1">7.1 두 모델의 비교</h2>
+
+<div class="table-wrap"><table>
+<thead><tr><th>비교 항목</th><th>천동설 (Geocentric)</th><th>지동설 (Heliocentric)</th></tr></thead>
+<tbody>
+<tr><td>우주 중심</td><td>지구</td><td>태양</td></tr>
+<tr class="alt-row"><td>역행운동 설명</td><td>주전원(epicycle)으로 설명</td><td>지구가 외행성을 추월할 때 자연 발생</td></tr>
+<tr><td>금성의 위상</td><td>항상 초승달~반달 형태만 가능</td><td>모든 위상 가능 (갈릴레오가 확인)</td></tr>
+<tr class="alt-row"><td>행성 밝기 변화</td><td>설명 어려움</td><td>거리 변화로 자연스럽게 설명</td></tr>
+<tr><td>연주시차</td><td>없음 (관측되지 않음 → 당시에는 천동설 유리)</td><td>있어야 함 (1838년 베셀이 최초 관측)</td></tr>
+<tr class="alt-row"><td>물리적 기반</td><td>아리스토텔레스의 자연철학</td><td>뉴턴의 만유인력 법칙</td></tr>
+<tr><td>예측 정밀도</td><td>주전원 추가로 개선 가능</td><td>케플러 법칙으로 정밀하게 예측</td></tr>
+<tr class="alt-row"><td>단순성</td><td>복잡 (80+ 개의 원 필요)</td><td>단순 (타원 궤도 6개로 충분)</td></tr>
+</tbody>
+</table></div>
+
+<p><strong>역행운동(retrograde motion)</strong>은 천동설과 지동설을 구분하는 핵심 현상입니다. 화성과 같은 외행성은 주기적으로 하늘에서 서쪽으로 후퇴하는 것처럼 보입니다.</p>
+
+<ul style="margin:10px 0 10px 20px;">
+<li><strong>천동설 설명</strong>: 화성이 주전원(deferent) 위의 주전원(epicycle) 위에서 움직이면서 일시적으로 뒤로 가는 것처럼 보임. 주전원의 크기와 속도를 정밀하게 조정해야 관측과 일치.</li>
+<li><strong>지동설 설명</strong>: 지구가 안쪽 궤도에서 더 빨리 공전하므로, 화성을 "추월"할 때 상대적으로 화성이 뒤로 가는 것처럼 보임. 추가 가정 없이 자연스럽게 설명됨.</li>
+</ul>
+
+<div class="arrow-summary"><span class="arrow-icon">&#9838;</span> 오컴의 면도날(Occam's Razor): 같은 현상을 설명할 때, 더 적은 가정을 사용하는 이론이 우선됩니다. 지동설은 주전원 없이 역행운동을 설명하며, 뉴턴의 만유인력이라는 물리적 기반을 갖추고 있습니다.</div>
+
+<h2 class="section-title" id="sec7-2">7.2 역행운동 시뮬레이션: 천동설 vs 지동설</h2>
+<p>왼쪽(천동설)에서는 지구를 중심에 놓고 화성의 궤적을 추적합니다. 화성의 궤적이 복잡한 고리(역행 루프)를 그리는 것을 볼 수 있습니다.<br>
+오른쪽(지동설)에서는 태양을 중심에 놓고, 지구와 화성이 각자의 궤도를 단순하게 공전합니다. 노란 점선은 지구에서 화성을 바라보는 시선 방향입니다.</p>
+
+<div class="sim-container">
+  <div class="sim-dual">
+    <div>
+      <div class="sim-label">천동설 (Geocentric)</div>
+      <canvas id="geoCanvas" width="320" height="320"></canvas>
+    </div>
+    <div>
+      <div class="sim-label">지동설 (Heliocentric)</div>
+      <canvas id="helioCanvas" width="320" height="320"></canvas>
+    </div>
+  </div>
+  <div class="sim-controls">
+    <button id="compPlayPause">⏸ 일시정지</button>
+    <label>속도: <input type="range" id="compSpeed" min="0.5" max="5" step="0.5" value="1.5"> <span id="compSpeedVal">1.5</span>x</label>
+  </div>
+  <div class="sim-info" id="compInfo"></div>
+</div>
+
+<div class="challenge-box">
+<div class="box-title">생각해봅시다</div>
+<ul>
+<li>왼쪽 그림에서 화성의 궤적이 고리 모양을 그리는 이유는 무엇일까요?</li>
+<li>프톨레마이오스는 이 복잡한 궤적을 설명하기 위해 몇 개의 원이 필요했을까요?</li>
+<li>오른쪽 그림에서 지구-화성 시선(노란 점선)이 방향을 바꾸는 순간이 역행의 시작과 끝입니다. 확인해보세요.</li>
+<li>천동설이 "틀렸다"기보다는 "불필요하게 복잡했다"고 보는 것이 더 정확합니다. 왜 그럴까요?</li>
+</ul>
+</div>
+</div>
+</div>
+<div id="references">
+<h2>참고문헌</h2>
+<div class="ref-item">[1] Newton, I. (1687). <em>Philosophiæ Naturalis Principia Mathematica</em>.</div>
+<div class="ref-item">[2] Copernicus, N. (1543). <em>De Revolutionibus Orbium Coelestium</em>.</div>
+<div class="ref-item">[3] Kepler, J. (1609). <em>Astronomia Nova</em>.</div>
+<div class="ref-item">[4] Kepler, J. (1619). <em>Harmonices Mundi</em>.</div>
+<div class="ref-item">[5] Ptolemy, C. (c. 150 AD). <em>Almagest (Mathēmatikē Syntaxis)</em>.</div>
+<div class="ref-item">[6] Galilei, G. (1632). <em>Dialogo sopra i due massimi sistemi del mondo</em>.</div>
+<div class="ref-item">[7] Meeus, J. (1991). <em>Astronomical Algorithms</em>. Willmann-Bell.</div>
+<div class="ref-item">[8] Carroll, B. W. & Ostlie, D. A. (2017). <em>An Introduction to Modern Astrophysics</em> (2nd ed.). Cambridge University Press.</div>
+<div class="ref-item">[9] 한국천문연구원. <em>천문우주지식정보</em>. <a href="https://astro.kasi.re.kr" target="_blank">https://astro.kasi.re.kr</a></div>
+<div class="ref-item">[10] 기상청 기상자료개방포털. <em>일사량 관측자료</em>. <a href="https://data.kma.go.kr" target="_blank">https://data.kma.go.kr</a></div>
+</div>
+<footer>
+  <p>Claude Code powered by Oh-My-ClaudeCode (by Yeachan HEO), SKILL by Jehyun LEE | jehyun.lee@gmail.com</p>
+  <p>2026.02.28.</p>
+</footer>
+</main>
+
+<script>
+// Progress bar
+window.addEventListener('scroll', () => {
+  const total = document.body.scrollHeight - window.innerHeight;
+  const pct = total > 0 ? (window.scrollY / total) * 100 : 0;
+  document.getElementById('progress-bar').style.width = pct + '%';
+});
+
+// Active TOC highlight
+const sections = document.querySelectorAll('section[id], h2[id], h1[id]');
+const tocLinks = document.querySelectorAll('.toc-section');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) {
+      tocLinks.forEach(l => l.classList.remove('active'));
+      const id = e.target.id;
+      const active = document.querySelector(`.toc-section[href="#${id}"]`);
+      if (active) active.classList.add('active');
+    }
+  });
+}, { rootMargin: '-20% 0px -70% 0px' });
+sections.forEach(s => observer.observe(s));
+
+// Scroll animation
+const chapters = document.querySelectorAll('.chapter');
+const chapObs = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('visible'); }
+  });
+}, { threshold: 0.05 });
+chapters.forEach(c => chapObs.observe(c));
+
+// Hamburger
+const ham = document.getElementById('hamburger');
+const sidebar = document.getElementById('sidebar');
+ham.addEventListener('click', () => sidebar.classList.toggle('open'));
+document.getElementById('main').addEventListener('click', () => sidebar.classList.remove('open'));
+
+// Smooth scroll for TOC links
+document.querySelectorAll('.toc-section').forEach(link => {
+  link.addEventListener('click', e => {
+    e.preventDefault();
+    const target = document.querySelector(link.getAttribute('href'));
+    if (target) target.scrollIntoView({ behavior: 'smooth' });
+    sidebar.classList.remove('open');
+  });
+});
+</script>
+<script>
+
+// Slider value displays
+document.querySelectorAll('input[type="range"]').forEach(slider => {
+  const valSpan = document.getElementById(slider.id.replace(/([A-Z])/g, (m) => m).replace('gravity','grav').replace('orbital','orb').replace('eclipse','ecl').replace('lunar','lunar').replace('day','day').replace('comp','comp') + 'Val');
+  slider.addEventListener('input', () => {
+    // Find the nearest span after the slider
+    const label = slider.closest('label');
+    if (label) {
+      const span = label.querySelector('span');
+      if (span) span.textContent = slider.value;
+    }
+  });
+  // Initial value
+  const label = slider.closest('label');
+  if (label) {
+    const span = label.querySelector('span');
+    if (span) span.textContent = slider.value;
+  }
+});
+
+// ═══════════════════════════════════════════════════════════
+// Celestial Mechanics Interactive Simulations
+// ═══════════════════════════════════════════════════════════
+
+// ── Utility ──
+const TAU = 2 * Math.PI;
+const DEG = Math.PI / 180;
+function lerp(a, b, t) { return a + (b - a) * t; }
+
+// ═══════════════════════════════════════════════════════════
+// 1. Gravitational Force Simulation
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('gravityCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const distSlider = document.getElementById('gravityDist');
+  const massSlider = document.getElementById('gravityMass');
+  const info = document.getElementById('gravityInfo');
+
+  const G = 6.674e-11;
+  const M_sun = 1.989e30, M_earth = 5.972e24, M_moon = 7.342e22;
+
+  function draw() {
+    const distFactor = parseFloat(distSlider.value);
+    const massFactor = parseFloat(massSlider.value);
+    ctx.clearRect(0, 0, W, H);
+
+    // Background stars
+    ctx.fillStyle = '#0a0e27';
+    ctx.fillRect(0, 0, W, H);
+    for (let i = 0; i < 60; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.2 + Math.random() * 0.5})`;
+      ctx.beginPath();
+      ctx.arc((i * 137.5) % W, (i * 97.3) % H, 0.5 + Math.random(), 0, TAU);
+      ctx.fill();
+    }
+
+    const cx = W / 2, cy = H / 2;
+    const sunX = cx - 140, earthX = cx + 60 * distFactor, moonX = earthX + 60;
+
+    // Sun
+    const sunR = 30;
+    const grad = ctx.createRadialGradient(sunX, cy, 5, sunX, cy, sunR + 10);
+    grad.addColorStop(0, '#fff7a0');
+    grad.addColorStop(0.5, '#ffcc00');
+    grad.addColorStop(1, 'rgba(255,150,0,0)');
+    ctx.fillStyle = grad;
+    ctx.beginPath(); ctx.arc(sunX, cy, sunR + 10, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffdd44';
+    ctx.beginPath(); ctx.arc(sunX, cy, sunR, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '11px Noto Sans KR';
+    ctx.textAlign = 'center';
+    ctx.fillText('태양', sunX, cy + sunR + 16);
+
+    // Earth
+    const earthR = 14 * massFactor;
+    ctx.fillStyle = '#4488cc';
+    ctx.beginPath(); ctx.arc(earthX, cy, earthR, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#66bb88';
+    ctx.beginPath(); ctx.arc(earthX, cy - 2, earthR * 0.6, 0.2, 2.2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText('지구', earthX, cy + earthR + 16);
+
+    // Moon
+    const moonR = 6;
+    ctx.fillStyle = '#bbb';
+    ctx.beginPath(); ctx.arc(moonX, cy, moonR, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.fillText('달', moonX, cy + moonR + 16);
+
+    // Force vectors
+    const r_se = 1.496e11 * distFactor;
+    const r_em = 3.844e8;
+    const F_se = G * M_sun * (M_earth * massFactor) / (r_se * r_se);
+    const F_em = G * (M_earth * massFactor) * M_moon / (r_em * r_em);
+
+    // Sun→Earth force arrow
+    const arrowLen_se = Math.min(80, F_se / 1e18);
+    drawArrow(ctx, earthX - earthR - 4, cy, earthX - earthR - 4 - arrowLen_se, cy, '#ff6644', 3);
+    ctx.fillStyle = '#ff8866'; ctx.font = '10px monospace';
+    ctx.fillText(`F = ${F_se.toExponential(2)} N`, (sunX + earthX) / 2, cy - 30);
+
+    // Earth→Moon force arrow
+    const arrowLen_em = Math.min(40, F_em / 1e16);
+    drawArrow(ctx, moonX - moonR - 2, cy, moonX - moonR - 2 - arrowLen_em, cy, '#44ccff', 2);
+    ctx.fillStyle = '#66ddff'; ctx.font = '10px monospace';
+    ctx.fillText(`F = ${F_em.toExponential(2)} N`, (earthX + moonX) / 2, cy + 36);
+
+    if (info) {
+      info.textContent = `태양-지구 거리: ${(distFactor).toFixed(1)} AU | 지구 질량: ${massFactor.toFixed(1)}x | 태양-지구 인력: ${F_se.toExponential(2)} N | 지구-달 인력: ${F_em.toExponential(2)} N`;
+    }
+  }
+
+  function drawArrow(ctx, x1, y1, x2, y2, color, w) {
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    const len = Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+    if (len < 5) return;
+    ctx.strokeStyle = color; ctx.lineWidth = w;
+    ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - 8 * Math.cos(angle - 0.4), y2 - 8 * Math.sin(angle - 0.4));
+    ctx.lineTo(x2 - 8 * Math.cos(angle + 0.4), y2 - 8 * Math.sin(angle + 0.4));
+    ctx.fill();
+  }
+
+  distSlider.addEventListener('input', draw);
+  massSlider.addEventListener('input', draw);
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 2. Orbital Motion Simulation (Sun-Earth-Moon)
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('orbitalCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const cx = W / 2, cy = H / 2;
+
+  const playBtn = document.getElementById('orbitalPlayPause');
+  const speedSlider = document.getElementById('orbitalSpeed');
+  const info = document.getElementById('orbitalInfo');
+
+  let running = true, time = 0;
+  const earthOrbitR = 180, moonOrbitR = 32;
+  const earthPeriod = 365.25, moonPeriod = 27.32;
+  let trail = [];
+
+  playBtn.addEventListener('click', () => {
+    running = !running;
+    playBtn.textContent = running ? '⏸ 일시정지' : '▶ 재생';
+    if (running) animate();
+  });
+
+  function animate() {
+    if (!running) return;
+    const speed = parseFloat(speedSlider.value);
+    time += speed;
+
+    ctx.fillStyle = 'rgba(10,14,39,0.15)';
+    ctx.fillRect(0, 0, W, H);
+
+    // Stars (only on first frame or when cleared)
+    if (time < speed * 2) {
+      ctx.fillStyle = '#0a0e27'; ctx.fillRect(0, 0, W, H);
+      for (let i = 0; i < 80; i++) {
+        ctx.fillStyle = `rgba(255,255,255,${0.2 + Math.random() * 0.4})`;
+        ctx.beginPath();
+        ctx.arc((i * 137.5 + 33) % W, (i * 97.3 + 17) % H, 0.5 + Math.random() * 0.5, 0, TAU);
+        ctx.fill();
+      }
+    }
+
+    // Orbit paths
+    ctx.strokeStyle = 'rgba(100,150,255,0.15)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(cx, cy, earthOrbitR, 0, TAU); ctx.stroke();
+
+    // Earth position (elliptical approximation e=0.0167)
+    const earthAngle = TAU * time / earthPeriod;
+    const e = 0.0167;
+    const earthR = earthOrbitR * (1 - e * e) / (1 + e * Math.cos(earthAngle));
+    const earthX = cx + earthR * Math.cos(earthAngle);
+    const earthY = cy + earthR * Math.sin(earthAngle);
+
+    // Moon orbit path
+    ctx.strokeStyle = 'rgba(200,200,200,0.12)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.arc(earthX, earthY, moonOrbitR, 0, TAU); ctx.stroke();
+
+    // Moon position
+    const moonAngle = TAU * time / moonPeriod;
+    const moonX = earthX + moonOrbitR * Math.cos(moonAngle);
+    const moonY = earthY + moonOrbitR * Math.sin(moonAngle);
+
+    // Earth trail
+    trail.push({ x: earthX, y: earthY });
+    if (trail.length > 600) trail.shift();
+    if (trail.length > 2) {
+      ctx.strokeStyle = 'rgba(68,136,204,0.3)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(trail[0].x, trail[0].y);
+      for (let i = 1; i < trail.length; i++) {
+        if (Math.abs(trail[i].x - trail[i-1].x) < 50) ctx.lineTo(trail[i].x, trail[i].y);
+        else ctx.moveTo(trail[i].x, trail[i].y);
+      }
+      ctx.stroke();
+    }
+
+    // Sun
+    const sunGrad = ctx.createRadialGradient(cx, cy, 5, cx, cy, 28);
+    sunGrad.addColorStop(0, '#fff7a0');
+    sunGrad.addColorStop(0.6, '#ffcc00');
+    sunGrad.addColorStop(1, 'rgba(255,150,0,0)');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath(); ctx.arc(cx, cy, 28, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffdd44';
+    ctx.beginPath(); ctx.arc(cx, cy, 18, 0, TAU); ctx.fill();
+
+    // Earth
+    ctx.fillStyle = '#4488cc';
+    ctx.beginPath(); ctx.arc(earthX, earthY, 8, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#66bb88';
+    ctx.beginPath(); ctx.arc(earthX, earthY - 1, 5, 0.3, 2.5); ctx.fill();
+
+    // Axial tilt indicator
+    const tiltAngle = 23.44 * DEG;
+    ctx.strokeStyle = '#88ccff'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(earthX, earthY - 12);
+    ctx.lineTo(earthX + 4 * Math.sin(tiltAngle), earthY - 12 - 4 * Math.cos(tiltAngle));
+    ctx.stroke();
+
+    // Moon
+    ctx.fillStyle = '#ccc';
+    ctx.beginPath(); ctx.arc(moonX, moonY, 4, 0, TAU); ctx.fill();
+
+    // Labels
+    ctx.fillStyle = '#fff'; ctx.font = '11px Noto Sans KR'; ctx.textAlign = 'center';
+    ctx.fillText('태양', cx, cy + 30);
+    ctx.fillText('지구', earthX, earthY + 16);
+    ctx.fillStyle = '#aaa'; ctx.font = '9px Noto Sans KR';
+    ctx.fillText('달', moonX, moonY + 10);
+
+    // Date display
+    const dayOfYear = Math.floor(time % earthPeriod);
+    const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+    let d = dayOfYear, m = 0;
+    while (m < 11 && d >= monthDays[m]) { d -= monthDays[m]; m++; }
+    ctx.fillStyle = '#7ec8e3'; ctx.font = '12px monospace'; ctx.textAlign = 'left';
+    ctx.fillText(`${months[m]} ${d+1}일 (${dayOfYear}일차)`, 10, 20);
+
+    if (info) info.textContent = `경과: ${dayOfYear}일 | 지구 공전각: ${(earthAngle * 180 / Math.PI % 360).toFixed(1)}° | 달 위상각: ${(moonAngle * 180 / Math.PI % 360).toFixed(1)}°`;
+
+    requestAnimationFrame(animate);
+  }
+
+  // Initial stars
+  ctx.fillStyle = '#0a0e27'; ctx.fillRect(0, 0, W, H);
+  animate();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 3. Solar Irradiance Simulation (Seoul, 37.5°N)
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('irradianceCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const daySlider = document.getElementById('daySlider');
+  const info = document.getElementById('irradianceInfo');
+
+  const S0 = 1361; // solar constant W/m²
+  const lat = 37.5 * DEG; // Seoul latitude
+  const tilt = 23.44 * DEG;
+
+  function solarDeclination(day) {
+    return tilt * Math.sin(TAU / 365 * (day - 81));
+  }
+
+  function maxElevation(day) {
+    const dec = solarDeclination(day);
+    return Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec));
+  }
+
+  function dayLength(day) {
+    const dec = solarDeclination(day);
+    const cosHA = -Math.tan(lat) * Math.tan(dec);
+    if (cosHA < -1) return 24;
+    if (cosHA > 1) return 0;
+    return 2 * Math.acos(cosHA) / TAU * 24;
+  }
+
+  function irradiance(day) {
+    const elev = maxElevation(day);
+    if (elev <= 0) return 0;
+    const AM = 1 / Math.sin(elev);
+    const transmission = Math.pow(0.7, Math.pow(AM, 0.678));
+    return S0 * Math.sin(elev) * transmission;
+  }
+
+  function draw() {
+    const currentDay = parseInt(daySlider.value);
+    ctx.clearRect(0, 0, W, H);
+
+    // Background
+    ctx.fillStyle = '#0f1525';
+    ctx.fillRect(0, 0, W, H);
+
+    // ── Left: Earth orbit diagram ──
+    const lW = W * 0.38, lCx = lW / 2, lCy = H / 2;
+    const orbitR = Math.min(lW, H) * 0.35;
+
+    // Sun
+    const sunGrad = ctx.createRadialGradient(lCx, lCy, 3, lCx, lCy, 18);
+    sunGrad.addColorStop(0, '#fff7a0');
+    sunGrad.addColorStop(0.7, '#ffcc00');
+    sunGrad.addColorStop(1, 'rgba(255,150,0,0)');
+    ctx.fillStyle = sunGrad;
+    ctx.beginPath(); ctx.arc(lCx, lCy, 18, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#ffdd44';
+    ctx.beginPath(); ctx.arc(lCx, lCy, 10, 0, TAU); ctx.fill();
+
+    // Orbit
+    ctx.strokeStyle = 'rgba(100,150,255,0.2)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(lCx, lCy, orbitR, 0, TAU); ctx.stroke();
+
+    // Season labels
+    ctx.fillStyle = '#556'; ctx.font = '10px Noto Sans KR'; ctx.textAlign = 'center';
+    ctx.fillText('하지(6월)', lCx, lCy - orbitR - 8);
+    ctx.fillText('동지(12월)', lCx, lCy + orbitR + 14);
+    ctx.fillText('춘분(3월)', lCx + orbitR + 8, lCy);
+    ctx.fillText('추분(9월)', lCx - orbitR - 8, lCy);
+
+    // Earth position on orbit (March equinox = day 80 at right)
+    const angle = TAU * (currentDay - 80) / 365;
+    const ex = lCx + orbitR * Math.cos(angle);
+    const ey = lCy - orbitR * Math.sin(angle);
+
+    ctx.fillStyle = '#4488cc';
+    ctx.beginPath(); ctx.arc(ex, ey, 7, 0, TAU); ctx.fill();
+
+    // Axial tilt
+    const dec = solarDeclination(currentDay);
+    ctx.strokeStyle = '#88ccff'; ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(ex - 5 * Math.sin(tilt), ey - 5 * Math.cos(tilt));
+    ctx.lineTo(ex + 12 * Math.sin(tilt), ey + 12 * Math.cos(tilt));
+    ctx.stroke();
+
+    // ── Right: Irradiance chart ──
+    const rX = W * 0.44, rW = W * 0.52, rY = 30, rH = H - 60;
+    const chartL = rX + 40, chartR = rX + rW - 10;
+    const chartT = rY + 10, chartB = rY + rH - 30;
+    const chartW = chartR - chartL, chartH = chartB - chartT;
+
+    // Axes
+    ctx.strokeStyle = '#556'; ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(chartL, chartT); ctx.lineTo(chartL, chartB); ctx.lineTo(chartR, chartB);
+    ctx.stroke();
+
+    // Y-axis labels
+    ctx.fillStyle = '#889'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    for (let v = 0; v <= 1000; v += 200) {
+      const y = chartB - (v / 1000) * chartH;
+      ctx.fillText(v + '', chartL - 4, y + 3);
+      ctx.strokeStyle = 'rgba(100,100,120,0.2)';
+      ctx.beginPath(); ctx.moveTo(chartL, y); ctx.lineTo(chartR, y); ctx.stroke();
+    }
+    ctx.fillStyle = '#889'; ctx.font = '10px Noto Sans KR';
+    ctx.save(); ctx.translate(rX + 8, (chartT + chartB) / 2);
+    ctx.rotate(-Math.PI / 2);
+    ctx.textAlign = 'center'; ctx.fillText('일사량 (W/m²)', 0, 0);
+    ctx.restore();
+
+    // X-axis labels
+    const monthLabels = ['1','2','3','4','5','6','7','8','9','10','11','12'];
+    ctx.fillStyle = '#889'; ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'center';
+    for (let m = 0; m < 12; m++) {
+      const x = chartL + (m + 0.5) / 12 * chartW;
+      ctx.fillText(monthLabels[m] + '월', x, chartB + 14);
+    }
+
+    // Irradiance curve
+    ctx.strokeStyle = '#ffaa44'; ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let d = 0; d < 365; d++) {
+      const x = chartL + d / 365 * chartW;
+      const y = chartB - irradiance(d) / 1000 * chartH;
+      d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+
+    // Day length curve
+    ctx.strokeStyle = '#44aaff'; ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath();
+    for (let d = 0; d < 365; d++) {
+      const x = chartL + d / 365 * chartW;
+      const dl = dayLength(d);
+      const y = chartB - (dl / 24) * chartH;
+      d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Current day marker
+    const cdX = chartL + currentDay / 365 * chartW;
+    ctx.strokeStyle = '#ff4466'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(cdX, chartT); ctx.lineTo(cdX, chartB); ctx.stroke();
+    const cdIrr = irradiance(currentDay);
+    const cdY = chartB - cdIrr / 1000 * chartH;
+    ctx.fillStyle = '#ff6688';
+    ctx.beginPath(); ctx.arc(cdX, cdY, 4, 0, TAU); ctx.fill();
+
+    // Legend
+    ctx.font = '10px Noto Sans KR'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#ffaa44'; ctx.fillText('━ 최대 일사량', chartR - 120, chartT + 12);
+    ctx.fillStyle = '#44aaff'; ctx.fillText('┄ 낮 길이(비율)', chartR - 120, chartT + 26);
+
+    // Info
+    const elev = maxElevation(currentDay) / DEG;
+    const dl = dayLength(currentDay);
+    const months2 = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const monthDays2 = [31,28,31,30,31,30,31,31,30,31,30,31];
+    let dd = currentDay, mm = 0;
+    while (mm < 11 && dd >= monthDays2[mm]) { dd -= monthDays2[mm]; mm++; }
+
+    if (info) info.textContent = `${months2[mm]} ${dd+1}일 | 태양 최대고도: ${elev.toFixed(1)}° | 낮 길이: ${dl.toFixed(1)}시간 | 최대 일사량: ${cdIrr.toFixed(0)} W/m²`;
+  }
+
+  daySlider.addEventListener('input', draw);
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 4. Lunar Phase Simulation
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('lunarCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const daySlider = document.getElementById('lunarDay');
+  const info = document.getElementById('lunarInfo');
+
+  const synodicPeriod = 29.53;
+  const phaseNames = ['삭 (신월)', '초승달', '상현달', '상현망간', '망 (보름달)', '하현망간', '하현달', '그믐달'];
+
+  function draw() {
+    const day = parseFloat(daySlider.value);
+    const phase = (day % synodicPeriod) / synodicPeriod; // 0-1
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0e27'; ctx.fillRect(0, 0, W, H);
+
+    // ── Top view: Sun→Earth→Moon ──
+    const topCx = W * 0.35, topCy = H * 0.45;
+    const moonOrbit = 100;
+
+    // Sun direction (far left)
+    ctx.fillStyle = '#ffcc00'; ctx.font = '11px Noto Sans KR'; ctx.textAlign = 'center';
+    const sunArrowX = topCx - 160;
+    ctx.fillText('☀ 태양광', sunArrowX, topCy - 10);
+    ctx.strokeStyle = '#ffcc44'; ctx.lineWidth = 1;
+    for (let i = 0; i < 5; i++) {
+      const y = topCy - 40 + i * 20;
+      ctx.beginPath(); ctx.moveTo(sunArrowX + 30, y); ctx.lineTo(topCx - moonOrbit - 20, y); ctx.stroke();
+      // arrowhead
+      ctx.beginPath();
+      ctx.moveTo(topCx - moonOrbit - 20, y);
+      ctx.lineTo(topCx - moonOrbit - 14, y - 3);
+      ctx.lineTo(topCx - moonOrbit - 14, y + 3);
+      ctx.fill();
+    }
+
+    // Earth
+    ctx.fillStyle = '#4488cc';
+    ctx.beginPath(); ctx.arc(topCx, topCy, 10, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#fff'; ctx.font = '10px Noto Sans KR';
+    ctx.fillText('지구', topCx, topCy + 22);
+
+    // Moon orbit
+    ctx.strokeStyle = 'rgba(200,200,200,0.15)'; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.arc(topCx, topCy, moonOrbit, 0, TAU); ctx.stroke();
+
+    // Moon position (phase 0 = new moon = between Earth and Sun)
+    const moonAngle = TAU * phase; // 0=new moon (left), 0.5=full moon (right)
+    const moonX = topCx - moonOrbit * Math.cos(moonAngle);
+    const moonY = topCy - moonOrbit * Math.sin(moonAngle);
+
+    ctx.fillStyle = '#ccc';
+    ctx.beginPath(); ctx.arc(moonX, moonY, 8, 0, TAU); ctx.fill();
+    ctx.fillStyle = '#aaa'; ctx.font = '9px Noto Sans KR';
+    ctx.fillText('달', moonX, moonY + 16);
+
+    // Sunlit side indicator on moon
+    ctx.fillStyle = 'rgba(0,0,0,0.6)';
+    ctx.beginPath(); ctx.arc(moonX, moonY, 8, -Math.PI/2, Math.PI/2); ctx.fill();
+
+    // Phase position markers
+    ctx.fillStyle = '#445'; ctx.font = '9px Noto Sans KR';
+    ctx.fillText('삭', topCx - moonOrbit, topCy - 12);
+    ctx.fillText('상현', topCx, topCy - moonOrbit - 8);
+    ctx.fillText('망', topCx + moonOrbit, topCy - 12);
+    ctx.fillText('하현', topCx, topCy + moonOrbit + 14);
+
+    // ── Right: Moon appearance from Earth ──
+    const moonViewX = W * 0.78, moonViewY = H * 0.45, moonViewR = 55;
+
+    // Moon disk
+    ctx.fillStyle = '#e8e4d8';
+    ctx.beginPath(); ctx.arc(moonViewX, moonViewY, moonViewR, 0, TAU); ctx.fill();
+
+    // Surface texture
+    ctx.fillStyle = '#ccc8b8';
+    ctx.beginPath(); ctx.arc(moonViewX - 15, moonViewY - 10, 12, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(moonViewX + 10, moonViewY + 15, 8, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(moonViewX + 20, moonViewY - 20, 6, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(moonViewX - 5, moonViewY + 25, 10, 0, TAU); ctx.fill();
+
+    // Shadow overlay using clipping
+    ctx.save();
+    ctx.beginPath(); ctx.arc(moonViewX, moonViewY, moonViewR, 0, TAU); ctx.clip();
+
+    // Calculate illumination
+    const illumAngle = phase * TAU;
+    ctx.fillStyle = '#0a0e27';
+    ctx.beginPath();
+    ctx.moveTo(moonViewX, moonViewY - moonViewR);
+    // Right half shadow or left half shadow
+    if (phase <= 0.5) {
+      // Waxing: shadow on left, shrinking
+      const bulge = Math.cos(illumAngle) * moonViewR;
+      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, true); // left arc
+      ctx.bezierCurveTo(moonViewX + bulge, moonViewY + moonViewR * 0.55,
+                         moonViewX + bulge, moonViewY - moonViewR * 0.55,
+                         moonViewX, moonViewY - moonViewR);
+    } else {
+      // Waning: shadow on right, growing
+      const bulge = -Math.cos(illumAngle) * moonViewR;
+      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, false); // right arc
+      ctx.bezierCurveTo(moonViewX - bulge, moonViewY + moonViewR * 0.55,
+                         moonViewX - bulge, moonViewY - moonViewR * 0.55,
+                         moonViewX, moonViewY - moonViewR);
+    }
+    ctx.fill();
+    ctx.restore();
+
+    // Moon label
+    ctx.fillStyle = '#fff'; ctx.font = 'bold 14px Noto Sans KR'; ctx.textAlign = 'center';
+    const phaseIdx = Math.floor(phase * 8) % 8;
+    ctx.fillText(phaseNames[phaseIdx], moonViewX, moonViewY + moonViewR + 24);
+
+    // Illumination percentage
+    const illumPct = phase <= 0.5 ? phase * 2 * 100 : (1 - (phase - 0.5) * 2) * 100;
+    ctx.fillStyle = '#aab'; ctx.font = '11px monospace';
+    ctx.fillText(`${illumPct.toFixed(0)}% 조명`, moonViewX, moonViewY + moonViewR + 42);
+
+    // Moonrise/set info
+    const riseHour = Math.floor((phase * 24 + 6) % 24);
+    const setHour = Math.floor((phase * 24 + 18) % 24);
+
+    if (info) info.textContent = `${day.toFixed(1)}일차 | 위상: ${phaseNames[phaseIdx]} | 조명: ${illumPct.toFixed(0)}% | 월출: ~${riseHour}시 | 월몰: ~${setHour}시`;
+  }
+
+  daySlider.addEventListener('input', draw);
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 5. Eclipse Simulation
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('eclipseCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const typeSelect = document.getElementById('eclipseType');
+  const inclSlider = document.getElementById('eclipseIncl');
+  const info = document.getElementById('eclipseInfo');
+
+  function draw() {
+    const type = typeSelect.value;
+    const inclination = parseFloat(inclSlider.value);
+    ctx.clearRect(0, 0, W, H);
+    ctx.fillStyle = '#0a0e27'; ctx.fillRect(0, 0, W, H);
+
+    const cy = H / 2;
+    const moonOffset = inclination * 2; // pixels offset from ecliptic
+
+    if (type === 'solar') {
+      // Solar Eclipse: Sun -- Moon -- Earth (side view)
+      const sunX = 80, moonX = W * 0.52, earthX = W - 100;
+      const sunR = 40, moonR = 12, earthR = 18;
+
+      // Sun
+      const sg = ctx.createRadialGradient(sunX, cy, 5, sunX, cy, sunR + 8);
+      sg.addColorStop(0, '#fff7a0'); sg.addColorStop(0.7, '#ffcc00');
+      sg.addColorStop(1, 'rgba(255,150,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(sunX, cy, sunR + 8, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffdd44';
+      ctx.beginPath(); ctx.arc(sunX, cy, sunR, 0, TAU); ctx.fill();
+
+      // Light rays (cone)
+      ctx.strokeStyle = 'rgba(255,200,50,0.08)'; ctx.lineWidth = 1;
+      for (let i = -8; i <= 8; i++) {
+        ctx.beginPath();
+        ctx.moveTo(sunX + sunR, cy + i * 4);
+        ctx.lineTo(earthX, cy + i * 20);
+        ctx.stroke();
+      }
+
+      // Shadow cone (umbra)
+      if (Math.abs(moonOffset) < 20) {
+        ctx.fillStyle = 'rgba(0,0,30,0.3)';
+        ctx.beginPath();
+        ctx.moveTo(moonX, cy + moonOffset - moonR);
+        ctx.lineTo(earthX + 30, cy + moonOffset - moonR * 2.5);
+        ctx.lineTo(earthX + 30, cy + moonOffset + moonR * 2.5);
+        ctx.lineTo(moonX, cy + moonOffset + moonR);
+        ctx.fill();
+
+        // Umbra (darker center)
+        ctx.fillStyle = 'rgba(0,0,20,0.5)';
+        ctx.beginPath();
+        ctx.moveTo(moonX, cy + moonOffset - moonR * 0.5);
+        ctx.lineTo(earthX + 10, cy + moonOffset - moonR * 0.8);
+        ctx.lineTo(earthX + 10, cy + moonOffset + moonR * 0.8);
+        ctx.lineTo(moonX, cy + moonOffset + moonR * 0.5);
+        ctx.fill();
+      }
+
+      // Moon
+      ctx.fillStyle = '#888';
+      ctx.beginPath(); ctx.arc(moonX, cy + moonOffset, moonR, 0, TAU); ctx.fill();
+
+      // Earth
+      ctx.fillStyle = '#4488cc';
+      ctx.beginPath(); ctx.arc(earthX, cy, earthR, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#66bb88';
+      ctx.beginPath(); ctx.arc(earthX, cy - 2, 11, 0.2, 2.2); ctx.fill();
+
+      // Ecliptic line
+      ctx.strokeStyle = 'rgba(255,100,100,0.3)'; ctx.lineWidth = 0.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Labels
+      ctx.fillStyle = '#fff'; ctx.font = '12px Noto Sans KR'; ctx.textAlign = 'center';
+      ctx.fillText('태양', sunX, cy + sunR + 18);
+      ctx.fillText('달', moonX, cy + moonOffset + moonR + 18);
+      ctx.fillText('지구', earthX, cy + earthR + 18);
+      ctx.fillStyle = '#ff6666'; ctx.font = '10px Noto Sans KR';
+      ctx.fillText('황도면', W - 40, cy - 6);
+
+      const eclipseOccurs = Math.abs(moonOffset) < earthR;
+      if (info) info.textContent = `일식 (Solar Eclipse) | 달 궤도 경사: ${inclination.toFixed(1)}° | ${eclipseOccurs ? '✓ 일식 발생!' : '✗ 일식 불발 (달이 황도면에서 벗어남)'}`;
+
+    } else {
+      // Lunar Eclipse: Sun -- Earth -- Moon (side view)
+      const sunX = 80, earthX = W * 0.48, moonX = W - 100;
+      const sunR = 40, earthR = 18, moonR = 10;
+
+      // Sun
+      const sg = ctx.createRadialGradient(sunX, cy, 5, sunX, cy, sunR + 8);
+      sg.addColorStop(0, '#fff7a0'); sg.addColorStop(0.7, '#ffcc00');
+      sg.addColorStop(1, 'rgba(255,150,0,0)');
+      ctx.fillStyle = sg;
+      ctx.beginPath(); ctx.arc(sunX, cy, sunR + 8, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#ffdd44';
+      ctx.beginPath(); ctx.arc(sunX, cy, sunR, 0, TAU); ctx.fill();
+
+      // Earth's shadow cone
+      ctx.fillStyle = 'rgba(0,0,30,0.25)';
+      ctx.beginPath();
+      ctx.moveTo(earthX, cy - earthR);
+      ctx.lineTo(W, cy - earthR * 3);
+      ctx.lineTo(W, cy + earthR * 3);
+      ctx.lineTo(earthX, cy + earthR);
+      ctx.fill();
+
+      // Umbra
+      ctx.fillStyle = 'rgba(0,0,20,0.4)';
+      ctx.beginPath();
+      ctx.moveTo(earthX, cy - earthR * 0.6);
+      ctx.lineTo(W - 30, cy - earthR * 1.5);
+      ctx.lineTo(W - 30, cy + earthR * 1.5);
+      ctx.lineTo(earthX, cy + earthR * 0.6);
+      ctx.fill();
+
+      // Earth
+      ctx.fillStyle = '#4488cc';
+      ctx.beginPath(); ctx.arc(earthX, cy, earthR, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#66bb88';
+      ctx.beginPath(); ctx.arc(earthX, cy - 2, 11, 0.2, 2.2); ctx.fill();
+
+      // Moon
+      const moonY = cy + moonOffset;
+      ctx.fillStyle = '#ccc';
+      ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, TAU); ctx.fill();
+
+      // If in shadow, darken moon
+      if (Math.abs(moonOffset) < earthR * 1.5) {
+        const shadowFactor = 1 - Math.abs(moonOffset) / (earthR * 1.5);
+        ctx.fillStyle = `rgba(180,60,30,${shadowFactor * 0.7})`;
+        ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, TAU); ctx.fill();
+      }
+
+      // Ecliptic line
+      ctx.strokeStyle = 'rgba(255,100,100,0.3)'; ctx.lineWidth = 0.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath(); ctx.moveTo(0, cy); ctx.lineTo(W, cy); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Labels
+      ctx.fillStyle = '#fff'; ctx.font = '12px Noto Sans KR'; ctx.textAlign = 'center';
+      ctx.fillText('태양', sunX, cy + sunR + 18);
+      ctx.fillText('지구', earthX, cy + earthR + 18);
+      ctx.fillText('달', moonX, moonY + moonR + 18);
+
+      const eclipseOccurs = Math.abs(moonOffset) < earthR * 1.5;
+      if (info) info.textContent = `월식 (Lunar Eclipse) | 달 궤도 경사: ${inclination.toFixed(1)}° | ${eclipseOccurs ? '✓ 월식 발생! (달이 붉게 물듦)' : '✗ 월식 불발'}`;
+    }
+  }
+
+  typeSelect.addEventListener('change', draw);
+  inclSlider.addEventListener('input', draw);
+  draw();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// 6. Geocentric vs Heliocentric Comparison
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const geoCanvas = document.getElementById('geoCanvas');
+  const helioCanvas = document.getElementById('helioCanvas');
+  if (!geoCanvas || !helioCanvas) return;
+  const gCtx = geoCanvas.getContext('2d');
+  const hCtx = helioCanvas.getContext('2d');
+  const gW = geoCanvas.width, gH = geoCanvas.height;
+  const hW = helioCanvas.width, hH = helioCanvas.height;
+
+  const playBtn = document.getElementById('compPlayPause');
+  const speedSlider = document.getElementById('compSpeed');
+  const info = document.getElementById('compInfo');
+
+  let running = true, time = 0;
+  const earthPeriod = 365.25, marsPeriod = 687;
+
+  // Mars trail in geocentric view
+  let marsGeoTrail = [];
+
+  playBtn.addEventListener('click', () => {
+    running = !running;
+    playBtn.textContent = running ? '⏸ 일시정지' : '▶ 재생';
+    if (running) animate();
+  });
+
+  function drawStars(ctx, w, h) {
+    for (let i = 0; i < 40; i++) {
+      ctx.fillStyle = `rgba(255,255,255,${0.15 + Math.random() * 0.3})`;
+      ctx.beginPath();
+      ctx.arc((i * 137.5 + 50) % w, (i * 97.3 + 30) % h, 0.5, 0, TAU);
+      ctx.fill();
+    }
+  }
+
+  function animate() {
+    if (!running) return;
+    const speed = parseFloat(speedSlider.value);
+    time += speed;
+
+    const earthAngle = TAU * time / earthPeriod;
+    const marsAngle = TAU * time / marsPeriod;
+
+    // ── Heliocentric (right) ──
+    hCtx.fillStyle = '#0a0e27'; hCtx.fillRect(0, 0, hW, hH);
+    drawStars(hCtx, hW, hH);
+    const hCx = hW / 2, hCy = hH / 2;
+    const earthR = 90, marsR = 135;
+
+    // Orbits
+    hCtx.strokeStyle = 'rgba(68,136,204,0.2)'; hCtx.lineWidth = 0.5;
+    hCtx.beginPath(); hCtx.arc(hCx, hCy, earthR, 0, TAU); hCtx.stroke();
+    hCtx.strokeStyle = 'rgba(204,100,68,0.2)';
+    hCtx.beginPath(); hCtx.arc(hCx, hCy, marsR, 0, TAU); hCtx.stroke();
+
+    // Sun
+    hCtx.fillStyle = '#ffdd44';
+    hCtx.beginPath(); hCtx.arc(hCx, hCy, 10, 0, TAU); hCtx.fill();
+
+    // Earth
+    const eX = hCx + earthR * Math.cos(earthAngle);
+    const eY = hCy + earthR * Math.sin(earthAngle);
+    hCtx.fillStyle = '#4488cc';
+    hCtx.beginPath(); hCtx.arc(eX, eY, 5, 0, TAU); hCtx.fill();
+
+    // Mars
+    const mX = hCx + marsR * Math.cos(marsAngle);
+    const mY = hCy + marsR * Math.sin(marsAngle);
+    hCtx.fillStyle = '#cc6644';
+    hCtx.beginPath(); hCtx.arc(mX, mY, 4, 0, TAU); hCtx.fill();
+
+    // Sight line
+    hCtx.strokeStyle = 'rgba(255,255,100,0.2)'; hCtx.lineWidth = 0.5;
+    hCtx.setLineDash([3, 3]);
+    hCtx.beginPath(); hCtx.moveTo(eX, eY); hCtx.lineTo(mX, mY); hCtx.stroke();
+    hCtx.setLineDash([]);
+
+    // Labels
+    hCtx.fillStyle = '#fff'; hCtx.font = '9px Noto Sans KR'; hCtx.textAlign = 'center';
+    hCtx.fillText('태양', hCx, hCy + 18);
+    hCtx.fillText('지구', eX, eY + 12);
+    hCtx.fillText('화성', mX, mY + 12);
+
+    // ── Geocentric (left) ──
+    gCtx.fillStyle = '#0a0e27'; gCtx.fillRect(0, 0, gW, gH);
+    drawStars(gCtx, gW, gH);
+    const gCx = gW / 2, gCy = gH / 2;
+
+    // Earth at center
+    gCtx.fillStyle = '#4488cc';
+    gCtx.beginPath(); gCtx.arc(gCx, gCy, 8, 0, TAU); gCtx.fill();
+    gCtx.fillStyle = '#fff'; gCtx.font = '9px Noto Sans KR'; gCtx.textAlign = 'center';
+    gCtx.fillText('지구', gCx, gCy + 18);
+
+    // Sun orbits Earth in geocentric model
+    const sunGeoAngle = earthAngle; // Sun appears to orbit Earth
+    const sunGeoR = 80;
+    const sunGeoX = gCx + sunGeoR * Math.cos(sunGeoAngle);
+    const sunGeoY = gCy + sunGeoR * Math.sin(sunGeoAngle);
+    gCtx.fillStyle = '#ffdd44';
+    gCtx.beginPath(); gCtx.arc(sunGeoX, sunGeoY, 8, 0, TAU); gCtx.fill();
+    gCtx.fillStyle = '#fff'; gCtx.font = '9px Noto Sans KR';
+    gCtx.fillText('태양', sunGeoX, sunGeoY + 15);
+    gCtx.strokeStyle = 'rgba(255,220,68,0.15)';
+    gCtx.beginPath(); gCtx.arc(gCx, gCy, sunGeoR, 0, TAU); gCtx.stroke();
+
+    // Mars in geocentric: relative position
+    const marsRelX = mX - eX; // Mars position relative to Earth
+    const marsRelY = mY - eY;
+    const marsRelDist = Math.sqrt(marsRelX * marsRelX + marsRelY * marsRelY);
+    const marsRelAngle = Math.atan2(marsRelY, marsRelX);
+
+    // Scale to fit canvas
+    const marsGeoR = marsRelDist * 0.7;
+    const marsGeoX = gCx + marsGeoR * Math.cos(marsRelAngle);
+    const marsGeoY = gCy + marsGeoR * Math.sin(marsRelAngle);
+
+    // Mars trail (shows epicycloid / retrograde)
+    marsGeoTrail.push({ x: marsGeoX, y: marsGeoY });
+    if (marsGeoTrail.length > 800) marsGeoTrail.shift();
+
+    gCtx.strokeStyle = 'rgba(204,100,68,0.4)'; gCtx.lineWidth = 1;
+    gCtx.beginPath();
+    for (let i = 0; i < marsGeoTrail.length; i++) {
+      const p = marsGeoTrail[i];
+      i === 0 ? gCtx.moveTo(p.x, p.y) : gCtx.lineTo(p.x, p.y);
+    }
+    gCtx.stroke();
+
+    gCtx.fillStyle = '#cc6644';
+    gCtx.beginPath(); gCtx.arc(marsGeoX, marsGeoY, 4, 0, TAU); gCtx.fill();
+    gCtx.fillStyle = '#fff'; gCtx.font = '9px Noto Sans KR';
+    gCtx.fillText('화성', marsGeoX, marsGeoY + 12);
+
+    // Epicycle explanation circle (visual only, approximate)
+    if (marsGeoTrail.length > 100) {
+      // Show that the trail forms loops
+      gCtx.fillStyle = 'rgba(255,200,100,0.5)'; gCtx.font = '10px Noto Sans KR';
+      gCtx.fillText('↺ 역행운동', gCx, gH - 12);
+    }
+
+    // Check retrograde
+    const prevAngle = marsGeoTrail.length > 5 ?
+      Math.atan2(marsGeoTrail[marsGeoTrail.length-5].y - gCy, marsGeoTrail[marsGeoTrail.length-5].x - gCx) : marsRelAngle;
+    const angleDiff = marsRelAngle - prevAngle;
+    const isRetrograde = angleDiff < -0.001 || (angleDiff > Math.PI);
+
+    if (info) {
+      const dayNum = Math.floor(time % (earthPeriod * 2));
+      info.textContent = `${dayNum}일 | ${isRetrograde ? '⚠ 역행 중 (Retrograde)' : '순행 중 (Prograde)'} | 화성의 궤적이 고리 모양을 그리는 것은 지구 공전 때문입니다`;
+    }
+
+    requestAnimationFrame(animate);
+  }
+
+  gCtx.fillStyle = '#0a0e27'; gCtx.fillRect(0, 0, gW, gH);
+  hCtx.fillStyle = '#0a0e27'; hCtx.fillRect(0, 0, hW, hH);
+  animate();
+})();
+
+// ═══════════════════════════════════════════════════════════
+// KaTeX auto-render
+// ═══════════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof renderMathInElement === 'function') {
+    renderMathInElement(document.body, {
+      delimiters: [
+        {left: '$$', right: '$$', display: true},
+        {left: '\\(', right: '\\)', display: false}
+      ],
+      throwOnError: false
+    });
+  }
+});
+
+</script>
+</body>
+</html>
