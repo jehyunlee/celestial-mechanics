@@ -151,8 +151,9 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     if (animId) { cancelAnimationFrame(animId); animId = null; }
     trail = [];
     stepCount = 0;
-    // Start at top of Earth, launch horizontally to the right
-    sx = 0; sy = -Re;
+    // Start above Earth surface (altitude ≈ 0.5 Re), launch horizontally
+    const launchR = Re * 1.5;
+    sx = 0; sy = -launchR;
     const vNorm = parseFloat(velSlider.value);
     svx = vNorm; svy = 0;
     drawFrame();
@@ -178,7 +179,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     // Velocity Verlet integration
     const r2 = sx * sx + sy * sy;
     const r = Math.sqrt(r2);
-    if (r < Re * 0.3) { running = false; return; } // crashed deep
+    if (r < Re) { running = false; return; } // hit Earth surface
     const a = -GM / r2;
     const ax = a * sx / r;
     const ay = a * sy / r;
@@ -204,7 +205,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     stepCount++;
 
     // Stop conditions
-    if (nr < Re && stepCount > 10) { running = false; return; } // impact
+    if (nr < Re && stepCount > 5) { running = false; return; } // impact on surface
     if (nr > 12) { running = false; return; } // escaped
     if (stepCount > maxSteps) { running = false; return; }
   }
