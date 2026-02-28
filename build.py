@@ -366,7 +366,7 @@ ch4 = '''<div class="chapter" id="ch4">
 <div class="sim-container">
   <canvas id="axialTiltCanvas" width="700" height="360"></canvas>
   <div class="sim-controls">
-    <label>위도: <input type="range" id="tiltLatSlider" min="-66.5" max="90" step="0.5" value="37.5"> <span id="tiltLatVal">37.5°N</span></label>
+    <label>위도: <input type="range" id="tiltLatSlider" min="-66.5" max="89.5" step="0.5" value="37.5"> <span id="tiltLatVal">37.5°N</span></label>
     <label>날짜: <input type="range" id="tiltDaySlider" min="0" max="364" step="1" value="172"> <span id="tiltDayVal">6월 22일</span></label>
   </div>
   <div class="sim-info" id="tiltInfo"></div>
@@ -385,7 +385,7 @@ ch4 = '''<div class="chapter" id="ch4">
 <div class="sim-container">
   <canvas id="celestialSphereCanvas" width="700" height="400"></canvas>
   <div class="sim-controls">
-    <label>위도: <input type="range" id="csLatSlider" min="-66.5" max="90" step="0.5" value="37.5"> <span id="csLatVal">37.5°N</span></label>
+    <label>위도: <input type="range" id="csLatSlider" min="-66.5" max="89.5" step="0.5" value="37.5"> <span id="csLatVal">37.5°N</span></label>
     <label>날짜: <input type="range" id="csDaySlider" min="0" max="364" step="1" value="172"> <span id="csDayVal">6월 22일</span></label>
     <button id="csPlayBtn">⏸ 일시정지</button>
   </div>
