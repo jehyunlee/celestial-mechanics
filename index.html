@@ -3413,7 +3413,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     // ── Ground cross lines (N-S, E-W) ──
     const groundLineLen = 0.7; // fraction of R on the ground plane
     // N-S line
-    ctx.strokeStyle = 'rgba(180,120,100,0.4)';
+    ctx.strokeStyle = 'rgba(220,180,140,0.5)';
     ctx.lineWidth = 1;
     ctx.beginPath();
     const gN = project(0, 0), gS = project(180, 0);
@@ -3597,18 +3597,25 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       const shadTipX = baseX + sxr * R;
       const shadTipY = baseY - szr * R;
 
-      // Shadow line
-      ctx.strokeStyle = 'rgba(40,40,40,0.6)';
-      ctx.lineWidth = 3;
+      // Shadow line (bright on dark ground for visibility)
+      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
+      ctx.lineWidth = 5;
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY);
+      ctx.lineTo(shadTipX, shadTipY);
+      ctx.stroke();
+      // Highlight edge
+      ctx.strokeStyle = 'rgba(180,160,120,0.6)';
+      ctx.lineWidth = 2;
       ctx.beginPath();
       ctx.moveTo(baseX, baseY);
       ctx.lineTo(shadTipX, shadTipY);
       ctx.stroke();
 
       // Shadow tip dot
-      ctx.fillStyle = 'rgba(40,40,40,0.4)';
+      ctx.fillStyle = 'rgba(200,180,140,0.7)';
       ctx.beginPath();
-      ctx.arc(shadTipX, shadTipY, 2.5, 0, TAU);
+      ctx.arc(shadTipX, shadTipY, 3, 0, TAU);
       ctx.fill();
     }
 
