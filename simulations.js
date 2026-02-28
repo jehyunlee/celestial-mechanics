@@ -244,7 +244,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 })();
 
 // ═══════════════════════════════════════════════════════════
-// 3. Solar Irradiance Simulation (Seoul, 37.5°N)
+// 3. Solar Irradiance Simulation (Seoul / Jakarta / London)
 // ═══════════════════════════════════════════════════════════
 (function() {
   const canvas = document.getElementById('irradianceCanvas');
@@ -255,87 +255,111 @@ function lerp(a, b, t) { return a + (b - a) * t; }
   const info = document.getElementById('irradianceInfo');
 
   const S0 = 1361; // solar constant W/m²
-  const lat = 37.5 * DEG; // Seoul latitude
   const tilt = 23.44 * DEG;
+
+  // City data: latitude, color, monthly weather clearness factor (Jan-Dec)
+  // Based on typical monthly sunshine hours / possible sunshine hours
+  const cities = [
+    { name: '서울',    nameEn: 'Seoul',   lat: 37.5, color: '#ffaa44', colorDim: 'rgba(255,170,68,0.35)',
+      weather: [0.52, 0.53, 0.50, 0.48, 0.49, 0.36, 0.28, 0.32, 0.44, 0.53, 0.50, 0.52],
+      note: '장마·태풍(6-9월)' },
+    { name: '자카르타', nameEn: 'Jakarta', lat: -6.2, color: '#ff5566', colorDim: 'rgba(255,85,102,0.35)',
+      weather: [0.38, 0.38, 0.42, 0.48, 0.52, 0.55, 0.58, 0.60, 0.56, 0.48, 0.40, 0.36],
+      note: '우기(11-3월)' },
+    { name: '런던',    nameEn: 'London',  lat: 51.5, color: '#44aaff', colorDim: 'rgba(68,170,255,0.35)',
+      weather: [0.22, 0.28, 0.33, 0.38, 0.40, 0.42, 0.42, 0.40, 0.36, 0.28, 0.22, 0.18],
+      note: '연중 흐림' },
+  ];
 
   function solarDeclination(day) {
     return tilt * Math.sin(TAU / 365 * (day - 81));
   }
 
-  function maxElevation(day) {
+  function maxElevation(day, latDeg) {
+    const latR = latDeg * DEG;
     const dec = solarDeclination(day);
-    return Math.asin(Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec));
+    return Math.asin(Math.sin(latR) * Math.sin(dec) + Math.cos(latR) * Math.cos(dec));
   }
 
-  function dayLength(day) {
+  function dayLength(day, latDeg) {
+    const latR = latDeg * DEG;
     const dec = solarDeclination(day);
-    const cosHA = -Math.tan(lat) * Math.tan(dec);
+    const cosHA = -Math.tan(latR) * Math.tan(dec);
     if (cosHA < -1) return 24;
     if (cosHA > 1) return 0;
     return 2 * Math.acos(cosHA) / TAU * 24;
   }
 
-  function irradiance(day) {
-    const elev = maxElevation(day);
+  function clearSkyIrradiance(day, latDeg) {
+    const elev = maxElevation(day, latDeg);
     if (elev <= 0) return 0;
     const AM = 1 / Math.sin(elev);
     const transmission = Math.pow(0.7, Math.pow(AM, 0.678));
     return S0 * Math.sin(elev) * transmission;
   }
 
+  function weatherFactor(day, weatherArr) {
+    // Interpolate monthly weather factor to daily
+    const monthDays = [31,28,31,30,31,30,31,31,30,31,30,31];
+    let d = day, m = 0;
+    while (m < 11 && d >= monthDays[m]) { d -= monthDays[m]; m++; }
+    const frac = d / monthDays[m];
+    const next = (m + 1) % 12;
+    return weatherArr[m] * (1 - frac) + weatherArr[next] * frac;
+  }
+
+  function actualIrradiance(day, city) {
+    return clearSkyIrradiance(day, city.lat) * weatherFactor(day, city.weather);
+  }
+
   function draw() {
     const currentDay = parseInt(daySlider.value);
     ctx.clearRect(0, 0, W, H);
-
-    // Background
-    ctx.fillStyle = '#0f1525';
-    ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = '#0f1525'; ctx.fillRect(0, 0, W, H);
 
     // ── Left: Earth orbit diagram ──
-    const lW = W * 0.38, lCx = lW / 2, lCy = H / 2;
-    const orbitR = Math.min(lW, H) * 0.35;
+    const lW = W * 0.32, lCx = lW / 2, lCy = H / 2;
+    const orbitR = Math.min(lW, H) * 0.32;
 
     // Sun
-    const sunGrad = ctx.createRadialGradient(lCx, lCy, 3, lCx, lCy, 18);
+    const sunGrad = ctx.createRadialGradient(lCx, lCy, 3, lCx, lCy, 16);
     sunGrad.addColorStop(0, '#fff7a0');
     sunGrad.addColorStop(0.7, '#ffcc00');
     sunGrad.addColorStop(1, 'rgba(255,150,0,0)');
     ctx.fillStyle = sunGrad;
-    ctx.beginPath(); ctx.arc(lCx, lCy, 18, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(lCx, lCy, 16, 0, TAU); ctx.fill();
     ctx.fillStyle = '#ffdd44';
-    ctx.beginPath(); ctx.arc(lCx, lCy, 10, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(lCx, lCy, 9, 0, TAU); ctx.fill();
 
     // Orbit
     ctx.strokeStyle = 'rgba(100,150,255,0.2)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.arc(lCx, lCy, orbitR, 0, TAU); ctx.stroke();
 
     // Season labels
-    ctx.fillStyle = '#556'; ctx.font = '10px Noto Sans KR'; ctx.textAlign = 'center';
-    ctx.fillText('하지(6월)', lCx, lCy - orbitR - 8);
-    ctx.fillText('동지(12월)', lCx, lCy + orbitR + 14);
-    ctx.fillText('춘분(3월)', lCx + orbitR + 8, lCy);
-    ctx.fillText('추분(9월)', lCx - orbitR - 8, lCy);
+    ctx.fillStyle = '#556'; ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'center';
+    ctx.fillText('하지', lCx, lCy - orbitR - 6);
+    ctx.fillText('동지', lCx, lCy + orbitR + 12);
+    ctx.fillText('춘분', lCx + orbitR + 6, lCy);
+    ctx.fillText('추분', lCx - orbitR - 6, lCy);
 
-    // Earth position on orbit (March equinox = day 80 at right)
+    // Earth position
     const angle = TAU * (currentDay - 80) / 365;
     const ex = lCx + orbitR * Math.cos(angle);
     const ey = lCy - orbitR * Math.sin(angle);
-
     ctx.fillStyle = '#4488cc';
-    ctx.beginPath(); ctx.arc(ex, ey, 7, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(ex, ey, 6, 0, TAU); ctx.fill();
 
     // Axial tilt
-    const dec = solarDeclination(currentDay);
     ctx.strokeStyle = '#88ccff'; ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.moveTo(ex - 5 * Math.sin(tilt), ey - 5 * Math.cos(tilt));
-    ctx.lineTo(ex + 12 * Math.sin(tilt), ey + 12 * Math.cos(tilt));
+    ctx.moveTo(ex - 4 * Math.sin(tilt), ey - 4 * Math.cos(tilt));
+    ctx.lineTo(ex + 10 * Math.sin(tilt), ey + 10 * Math.cos(tilt));
     ctx.stroke();
 
-    // ── Right: Irradiance chart ──
-    const rX = W * 0.44, rW = W * 0.52, rY = 30, rH = H - 60;
-    const chartL = rX + 40, chartR = rX + rW - 10;
-    const chartT = rY + 10, chartB = rY + rH - 30;
+    // ── Right: Irradiance chart (3 cities) ──
+    const rX = W * 0.36, rW = W * 0.61, rY = 14, rH = H - 40;
+    const chartL = rX + 38, chartR = rX + rW - 6;
+    const chartT = rY + 6, chartB = rY + rH - 24;
     const chartW = chartR - chartL, chartH = chartB - chartT;
 
     // Axes
@@ -345,73 +369,107 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     ctx.stroke();
 
     // Y-axis labels
-    ctx.fillStyle = '#889'; ctx.font = '9px monospace'; ctx.textAlign = 'right';
+    ctx.fillStyle = '#889'; ctx.font = '8px monospace'; ctx.textAlign = 'right';
     for (let v = 0; v <= 1000; v += 200) {
       const y = chartB - (v / 1000) * chartH;
-      ctx.fillText(v + '', chartL - 4, y + 3);
-      ctx.strokeStyle = 'rgba(100,100,120,0.2)';
+      ctx.fillText(v + '', chartL - 3, y + 3);
+      ctx.strokeStyle = 'rgba(100,100,120,0.15)';
       ctx.beginPath(); ctx.moveTo(chartL, y); ctx.lineTo(chartR, y); ctx.stroke();
     }
-    ctx.fillStyle = '#889'; ctx.font = '10px Noto Sans KR';
-    ctx.save(); ctx.translate(rX + 8, (chartT + chartB) / 2);
+    ctx.fillStyle = '#889'; ctx.font = '9px Noto Sans KR';
+    ctx.save(); ctx.translate(rX + 6, (chartT + chartB) / 2);
     ctx.rotate(-Math.PI / 2);
     ctx.textAlign = 'center'; ctx.fillText('일사량 (W/m²)', 0, 0);
     ctx.restore();
 
     // X-axis labels
     const monthLabels = ['1','2','3','4','5','6','7','8','9','10','11','12'];
-    ctx.fillStyle = '#889'; ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'center';
+    ctx.fillStyle = '#889'; ctx.font = '8px Noto Sans KR'; ctx.textAlign = 'center';
     for (let m = 0; m < 12; m++) {
       const x = chartL + (m + 0.5) / 12 * chartW;
-      ctx.fillText(monthLabels[m] + '월', x, chartB + 14);
+      ctx.fillText(monthLabels[m] + '월', x, chartB + 12);
     }
 
-    // Irradiance curve
-    ctx.strokeStyle = '#ffaa44'; ctx.lineWidth = 2;
-    ctx.beginPath();
-    for (let d = 0; d < 365; d++) {
-      const x = chartL + d / 365 * chartW;
-      const y = chartB - irradiance(d) / 1000 * chartH;
-      d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.stroke();
+    // Monsoon/typhoon season band for Seoul (Jun-Sep)
+    const junStart = chartL + (151 / 365) * chartW;
+    const sepEnd = chartL + (273 / 365) * chartW;
+    ctx.fillStyle = 'rgba(100,100,255,0.06)';
+    ctx.fillRect(junStart, chartT, sepEnd - junStart, chartH);
+    ctx.fillStyle = 'rgba(100,150,255,0.3)'; ctx.font = '8px Noto Sans KR';
+    ctx.textAlign = 'center';
+    ctx.fillText('장마·태풍', (junStart + sepEnd) / 2, chartT + 10);
 
-    // Day length curve
-    ctx.strokeStyle = '#44aaff'; ctx.lineWidth = 1.5;
-    ctx.setLineDash([4, 3]);
-    ctx.beginPath();
-    for (let d = 0; d < 365; d++) {
-      const x = chartL + d / 365 * chartW;
-      const dl = dayLength(d);
-      const y = chartB - (dl / 24) * chartH;
-      d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
+    // Draw curves for each city
+    cities.forEach((city, ci) => {
+      // Clear-sky (dashed, dimmer)
+      ctx.strokeStyle = city.colorDim; ctx.lineWidth = 1;
+      ctx.setLineDash([3, 3]);
+      ctx.beginPath();
+      for (let d = 0; d < 365; d++) {
+        const x = chartL + d / 365 * chartW;
+        const y = chartB - clearSkyIrradiance(d, city.lat) / 1000 * chartH;
+        d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Actual (solid, bright)
+      ctx.strokeStyle = city.color; ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let d = 0; d < 365; d++) {
+        const x = chartL + d / 365 * chartW;
+        const y = chartB - actualIrradiance(d, city) / 1000 * chartH;
+        d === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    });
 
     // Current day marker
     const cdX = chartL + currentDay / 365 * chartW;
-    ctx.strokeStyle = '#ff4466'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
+    ctx.setLineDash([2, 2]);
     ctx.beginPath(); ctx.moveTo(cdX, chartT); ctx.lineTo(cdX, chartB); ctx.stroke();
-    const cdIrr = irradiance(currentDay);
-    const cdY = chartB - cdIrr / 1000 * chartH;
-    ctx.fillStyle = '#ff6688';
-    ctx.beginPath(); ctx.arc(cdX, cdY, 4, 0, TAU); ctx.fill();
+    ctx.setLineDash([]);
 
-    // Legend
-    ctx.font = '10px Noto Sans KR'; ctx.textAlign = 'left';
-    ctx.fillStyle = '#ffaa44'; ctx.fillText('━ 최대 일사량', chartR - 120, chartT + 12);
-    ctx.fillStyle = '#44aaff'; ctx.fillText('┄ 낮 길이(비율)', chartR - 120, chartT + 26);
+    // Current day dots for each city
+    cities.forEach(city => {
+      const irr = actualIrradiance(currentDay, city);
+      const y = chartB - irr / 1000 * chartH;
+      ctx.fillStyle = city.color;
+      ctx.beginPath(); ctx.arc(cdX, y, 3.5, 0, TAU); ctx.fill();
+    });
+
+    // Legend (top-right of chart)
+    const legX = chartR - 125, legY = chartT + 4;
+    ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'left';
+    cities.forEach((city, i) => {
+      const y = legY + i * 14;
+      // Solid line
+      ctx.strokeStyle = city.color; ctx.lineWidth = 2; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(legX, y + 4); ctx.lineTo(legX + 14, y + 4); ctx.stroke();
+      // Dashed line
+      ctx.strokeStyle = city.colorDim; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+      ctx.beginPath(); ctx.moveTo(legX + 16, y + 4); ctx.lineTo(legX + 28, y + 4); ctx.stroke();
+      ctx.setLineDash([]);
+      // Label
+      ctx.fillStyle = city.color;
+      ctx.fillText(`${city.name} (${city.lat > 0 ? city.lat+'°N' : Math.abs(city.lat)+'°S'})`, legX + 32, y + 7);
+    });
+    ctx.fillStyle = '#667'; ctx.font = '8px Noto Sans KR';
+    ctx.fillText('실선=실질 / 점선=이론', legX, legY + 48);
 
     // Info
-    const elev = maxElevation(currentDay) / DEG;
-    const dl = dayLength(currentDay);
     const months2 = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
     const monthDays2 = [31,28,31,30,31,30,31,31,30,31,30,31];
     let dd = currentDay, mm = 0;
     while (mm < 11 && dd >= monthDays2[mm]) { dd -= monthDays2[mm]; mm++; }
 
-    if (info) info.textContent = `${months2[mm]} ${dd+1}일 | 태양 최대고도: ${elev.toFixed(1)}° | 낮 길이: ${dl.toFixed(1)}시간 | 최대 일사량: ${cdIrr.toFixed(0)} W/m²`;
+    const seoulClear = clearSkyIrradiance(currentDay, 37.5);
+    const seoulActual = actualIrradiance(currentDay, cities[0]);
+    const jakartaActual = actualIrradiance(currentDay, cities[1]);
+    const londonActual = actualIrradiance(currentDay, cities[2]);
+
+    if (info) info.textContent = `${months2[mm]} ${dd+1}일 | 서울: ${seoulActual.toFixed(0)} W/m² (이론 ${seoulClear.toFixed(0)}) | 자카르타: ${jakartaActual.toFixed(0)} | 런던: ${londonActual.toFixed(0)}`;
   }
 
   daySlider.addEventListener('input', draw);
@@ -519,24 +577,21 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     ctx.beginPath();
 
     if (phase < 0.5) {
-      // WAXING: dark on left side, lit on right
-      // Left limb (semicircle): top → bottom through LEFT
+      // WAXING: dark on LEFT side, lit on right
+      // Left limb (semicircle): top → LEFT → bottom
       ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, true);
       // Terminator (half-ellipse): bottom → top
-      //   c > 0 (crescent): terminator right of center → CCW (true) through right
-      //   c < 0 (gibbous): terminator left of center → CW (false) through left
+      //   c > 0 (crescent): curves right → large shadow → anticlockwise=true (through right)
+      //   c < 0 (gibbous): curves left → small shadow → anticlockwise=false (through left)
       ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, Math.PI/2, -Math.PI/2, c > 0);
     } else {
-      // WANING: dark on right side, lit on left
-      // Terminator position for waning: -r*cos(phase*TAU)
-      // At phase=0.5: tx=+r (no shadow), 0.75: tx=0 (half), 1.0: tx=-r (all dark)
-      // Terminator (half-ellipse): top → bottom
-      //   c < 0 (gibbous, tx>0): go CW through right
-      //   c > 0 (crescent, tx<0): go CCW through left
-      ctx.moveTo(moonViewX, moonViewY - moonViewR);
-      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, -Math.PI/2, Math.PI/2, c > 0);
-      // Right limb (semicircle): bottom → top through RIGHT
-      ctx.arc(moonViewX, moonViewY, moonViewR, Math.PI/2, -Math.PI/2, false);
+      // WANING: dark on RIGHT side, lit on left
+      // Right limb (semicircle): top → RIGHT → bottom
+      ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, false);
+      // Terminator (half-ellipse): bottom → top
+      //   c < 0 (gibbous): curves right → overlap with limb → small shadow → anticlockwise=true
+      //   c > 0 (crescent): curves left → large shadow → anticlockwise=false
+      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, Math.PI/2, -Math.PI/2, c < 0);
     }
     ctx.fill();
     ctx.restore();

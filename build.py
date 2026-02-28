@@ -284,7 +284,7 @@ ch4 = '''<div class="chapter" id="ch4">
 <div class="chapter-banner" style="background:linear-gradient(135deg,#1a2040,#2a3060);height:180px;display:flex;align-items:center;justify-content:center;">
   <div style="text-align:center;color:#fff;">
     <div style="font-size:32px;">&#x2600; &#x1F30F;</div>
-    <div style="font-size:14px;opacity:0.7;margin-top:8px;">Solar Irradiance at Seoul (37.5&deg;N)</div>
+    <div style="font-size:14px;opacity:0.7;margin-top:8px;">Solar Irradiance — Seoul · Jakarta · London</div>
   </div>
 </div>
 <div class="chapter-body">
@@ -321,16 +321,34 @@ ch4 = '''<div class="chapter" id="ch4">
 <p><strong>동지(12월 22일경)</strong>: 낮 길이 ~9.5시간, 최대 고도 ~29°, 최대 일사량 ~430 W/m²</p>
 </div>
 
-<h2 class="section-title" id="sec4-2">4.2 서울 연중 일사량 시뮬레이션</h2>
-<p>왼쪽 그림은 지구의 공전 궤도에서 현재 위치를, 오른쪽 그래프는 서울의 연간 최대 일사량(주황선)과 낮 길이 비율(파란 점선)을 보여줍니다. 슬라이더를 조작하여 계절에 따른 변화를 관찰해보세요.</p>
+<h2 class="section-title" id="sec4-2">4.2 연중 일사량 시뮬레이션: 서울 · 자카르타 · 런던</h2>
+
+<p>천문학적 일사량(clear-sky irradiance)은 위도와 태양 고도각만으로 계산되지만, 실제로 지표면에 도달하는 일사량은 <strong>기상 조건</strong>에 크게 좌우됩니다. 구름, 장마, 태풍, 안개 등이 태양복사를 산란·흡수하여 실질 일사량을 감소시킵니다.</p>
+
+<div class="info-box">
+<div class="box-title">[세 도시의 기상 특성과 일사량]</div>
+<p><strong>서울 (37.5°N)</strong>: 뚜렷한 사계절. 6~9월 장마·태풍 시즌에 일조율이 30% 이하로 급감. 맑은 날 기준 일사량은 높으나 실질 일사량은 장마철에 크게 감소합니다.</p>
+<p><strong>자카르타 (6.2°S)</strong>: 적도 부근으로 연중 태양 고도가 높아 천문학적 일사량 변화가 작음. 그러나 11~3월 우기(monsoon)에 강수량이 집중되어 일조율이 떨어지고, 건기(6~9월)에 오히려 일사량이 최대가 됩니다.</p>
+<p><strong>런던 (51.5°N)</strong>: 고위도에 해양성 기후로 연중 흐린 날이 많음. 겨울 일조율 ~20%, 여름에도 ~42%에 불과합니다. 천문학적 일사량 자체도 낮고, 기상으로 인한 감소까지 더해져 세 도시 중 실질 일사량이 가장 낮습니다.</p>
+</div>
+
+<div class="math-block">
+<p><strong>실질 일사량 모델</strong></p>
+<p>$$ I_{\\text{actual}}(d) = I_{\\text{clear}}(d) \\times f_{\\text{weather}}(d) $$</p>
+<p>여기서 \\(f_{\\text{weather}}(d)\\)는 월별 일조율(sunshine fraction) 데이터를 일별로 보간한 기상 감쇠 계수입니다. 맑은 날의 이론적 일사량 \\(I_{\\text{clear}}\\)에 이 계수를 곱하면 장기 평균 실질 일사량을 추정할 수 있습니다.</p>
+</div>
+
+<p>아래 시뮬레이션에서 <span style="color:#ffaa44;font-weight:bold;">주황색은 서울</span>, <span style="color:#ff5566;font-weight:bold;">붉은색은 자카르타</span>, <span style="color:#44aaff;font-weight:bold;">파란색은 런던</span>입니다. <strong>점선</strong>은 맑은 날 이론 일사량(clear-sky), <strong>실선</strong>은 기상 보정 실질 일사량입니다. 파란 띠 영역은 서울의 장마·태풍 시즌(6~9월)을 표시합니다.</p>
 
 <div class="sim-container">
-  <canvas id="irradianceCanvas" width="700" height="340"></canvas>
+  <canvas id="irradianceCanvas" width="700" height="380"></canvas>
   <div class="sim-controls">
     <label>날짜 (일차): <input type="range" id="daySlider" min="0" max="364" step="1" value="172"> <span id="dayVal">172</span></label>
   </div>
   <div class="sim-info" id="irradianceInfo"></div>
 </div>
+
+<div class="arrow-summary"><span class="arrow-icon">&#9838;</span> 위도가 낮을수록 연간 일사량 변동폭이 작고, 기상 조건(장마, 우기, 흐림)이 실질 일사량에 미치는 영향이 위도 효과 못지않게 크다는 것을 확인할 수 있습니다.</div>
 </div>
 </div>'''
 
