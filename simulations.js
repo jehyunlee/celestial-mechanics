@@ -2104,11 +2104,14 @@ function lerp(a, b, t) { return a + (b - a) * t; }
   const info = document.getElementById('csInfo');
 
   const OBLIQ = 23.44;
-  // View: from south at ~28° elevation
-  const viewElev = 28 * DEG;
+  // View: oblique from SW at 30° elevation, 45° azimuthal offset
+  // South → upper-left, North → lower-right
+  const viewElev = 30 * DEG;
+  const viewAz = -135 * DEG; // scene rotation so south=upper-left
   const cosV = Math.cos(viewElev), sinV = Math.sin(viewElev);
-  const R = Math.min(W, H) * 0.38; // sphere radius in pixels
-  const cx = W * 0.5, cy = H * 0.55;
+  const cosA = Math.cos(viewAz), sinA = Math.sin(viewAz);
+  const R = Math.min(W, H) * 0.36; // sphere radius in pixels
+  const cx = W * 0.5, cy = H * 0.52;
 
   let hourAngle = -180; // degrees, -180=midnight, 0=noon, +180=midnight
   let playing = true;
@@ -2129,20 +2132,23 @@ function lerp(a, b, t) { return a + (b - a) * t; }
   }
 
   // Project 3D point (azimuth A from north CW, altitude α) onto 2D canvas
-  // 3D: x=east, y=north, z=up
+  // 3D: x=east, y=north, z=up → rotate by viewAz around z → tilt by viewElev around x
   function project(azDeg, altDeg) {
     const az = azDeg * DEG, alt = altDeg * DEG;
     const x3 = Math.cos(alt) * Math.sin(az);   // east
     const y3 = Math.cos(alt) * Math.cos(az);   // north
     const z3 = Math.sin(alt);                    // up
-    // Rotate around x-axis by viewElev (tilt forward)
-    const y3r = y3 * cosV - z3 * sinV;
-    const z3r = y3 * sinV + z3 * cosV;
-    // Parallel projection: screen_x = x3 (east=right), screen_y = -z3r (up=screen up)
+    // 1) Rotate around z-axis by viewAz (azimuthal rotation)
+    const xr = x3 * cosA - y3 * sinA;
+    const yr = x3 * sinA + y3 * cosA;
+    // 2) Rotate around x-axis by viewElev (tilt forward)
+    const yr2 = yr * cosV - z3 * sinV;
+    const zr = yr * sinV + z3 * cosV;
+    // Parallel projection
     return {
-      x: cx + x3 * R,
-      y: cy - z3r * R,
-      depth: y3r // for visibility (positive = behind = farther from viewer)
+      x: cx + xr * R,
+      y: cy - zr * R,
+      depth: yr2
     };
   }
 
@@ -2184,15 +2190,25 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     ctx.fillStyle = skyGrad;
     ctx.fillRect(0, 0, W, H);
 
-    // ── Horizon ellipse ──
-    const horizRx = R;
-    const horizRy = R * sinV;
+    // ── Horizon (projected as rotated ellipse) ──
+    // Collect horizon points
+    const horizPts = [];
+    for (let a = 0; a <= 360; a += 2) {
+      horizPts.push(project(a, 0));
+    }
     // Ground fill below horizon
     ctx.fillStyle = '#1a2a15';
     ctx.beginPath();
-    ctx.ellipse(cx, cy, horizRx, horizRy, 0, 0, Math.PI);
-    ctx.lineTo(cx + horizRx, H);
-    ctx.lineTo(cx - horizRx, H);
+    ctx.moveTo(horizPts[0].x, horizPts[0].y);
+    for (let i = 1; i < horizPts.length; i++) ctx.lineTo(horizPts[i].x, horizPts[i].y);
+    // Close with bottom of canvas
+    const lastH = horizPts[horizPts.length - 1];
+    // Find the lowest point to extend ground fill
+    let maxY = 0;
+    for (const p of horizPts) if (p.y > maxY) maxY = p.y;
+    const extY = Math.max(maxY + 50, H);
+    // Trace bottom edge
+    ctx.lineTo(W, extY); ctx.lineTo(0, extY);
     ctx.closePath();
     ctx.fill();
 
@@ -2200,7 +2216,9 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     ctx.strokeStyle = 'rgba(100,180,100,0.5)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.ellipse(cx, cy, horizRx, horizRy, 0, 0, TAU);
+    ctx.moveTo(horizPts[0].x, horizPts[0].y);
+    for (let i = 1; i < horizPts.length; i++) ctx.lineTo(horizPts[i].x, horizPts[i].y);
+    ctx.closePath();
     ctx.stroke();
 
     // ── Cardinal directions ──
