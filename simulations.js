@@ -165,16 +165,16 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     const e = 0.0167;
     const earthR = earthOrbitR * (1 - e * e) / (1 + e * Math.cos(earthAngle));
     const earthX = cx + earthR * Math.cos(earthAngle);
-    const earthY = cy + earthR * Math.sin(earthAngle);
+    const earthY = cy - earthR * Math.sin(earthAngle);
 
     // Moon orbit path
     ctx.strokeStyle = 'rgba(200,200,200,0.12)'; ctx.lineWidth = 0.5;
     ctx.beginPath(); ctx.arc(earthX, earthY, moonOrbitR, 0, TAU); ctx.stroke();
 
-    // Moon position
+    // Moon position (CCW as seen from North Pole)
     const moonAngle = TAU * time / moonPeriod;
     const moonX = earthX + moonOrbitR * Math.cos(moonAngle);
-    const moonY = earthY + moonOrbitR * Math.sin(moonAngle);
+    const moonY = earthY - moonOrbitR * Math.sin(moonAngle);
 
     // Earth trail
     trail.push({ x: earthX, y: earthY });
@@ -1280,13 +1280,13 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 
     // Earth
     const eX = hCx + earthR * Math.cos(earthAngle);
-    const eY = hCy + earthR * Math.sin(earthAngle);
+    const eY = hCy - earthR * Math.sin(earthAngle);
     hCtx.fillStyle = '#4488cc';
     hCtx.beginPath(); hCtx.arc(eX, eY, 5, 0, TAU); hCtx.fill();
 
     // Mars
     const mX = hCx + marsR * Math.cos(marsAngle);
-    const mY = hCy + marsR * Math.sin(marsAngle);
+    const mY = hCy - marsR * Math.sin(marsAngle);
     hCtx.fillStyle = '#cc6644';
     hCtx.beginPath(); hCtx.arc(mX, mY, 4, 0, TAU); hCtx.fill();
 
@@ -1317,7 +1317,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     const sunGeoAngle = earthAngle; // Sun appears to orbit Earth
     const sunGeoR = 80;
     const sunGeoX = gCx + sunGeoR * Math.cos(sunGeoAngle);
-    const sunGeoY = gCy + sunGeoR * Math.sin(sunGeoAngle);
+    const sunGeoY = gCy - sunGeoR * Math.sin(sunGeoAngle);
     gCtx.fillStyle = '#ffdd44';
     gCtx.beginPath(); gCtx.arc(sunGeoX, sunGeoY, 8, 0, TAU); gCtx.fill();
     gCtx.fillStyle = '#fff'; gCtx.font = '9px Noto Sans KR';
