@@ -3283,6 +3283,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
   let hourAngle = -180; // degrees, -180=midnight, 0=noon, +180=midnight
   let playing = true;
   let animId = null;
+  let shadowTrail = []; // stores {x, y} of shadow tip positions
 
   function solarDecl(day) {
     return OBLIQ * Math.sin((day - 81) * TAU / 365);
@@ -3364,7 +3365,7 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       horizPts.push(project(a, 0));
     }
     // Ground fill below horizon
-    ctx.fillStyle = '#1a2a15';
+    ctx.fillStyle = '#2e4028';
     ctx.beginPath();
     ctx.moveTo(horizPts[0].x, horizPts[0].y);
     for (let i = 1; i < horizPts.length; i++) ctx.lineTo(horizPts[i].x, horizPts[i].y);
@@ -3597,23 +3598,32 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       const shadTipX = baseX + sxr * R;
       const shadTipY = baseY - szr * R;
 
-      // Shadow line (bright on dark ground for visibility)
-      ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-      ctx.lineWidth = 5;
-      ctx.beginPath();
-      ctx.moveTo(baseX, baseY);
-      ctx.lineTo(shadTipX, shadTipY);
-      ctx.stroke();
-      // Highlight edge
-      ctx.strokeStyle = 'rgba(180,160,120,0.6)';
-      ctx.lineWidth = 2;
+      // Store shadow tip in trail
+      shadowTrail.push({ x: shadTipX, y: shadTipY });
+      if (shadowTrail.length > 400) shadowTrail.shift();
+
+      // Draw shadow trail (analemma-like trace)
+      if (shadowTrail.length > 1) {
+        ctx.strokeStyle = 'rgba(20,20,20,0.8)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.moveTo(shadowTrail[0].x, shadowTrail[0].y);
+        for (let i = 1; i < shadowTrail.length; i++) {
+          ctx.lineTo(shadowTrail[i].x, shadowTrail[i].y);
+        }
+        ctx.stroke();
+      }
+
+      // Shadow line (black, same thickness as pole)
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.moveTo(baseX, baseY);
       ctx.lineTo(shadTipX, shadTipY);
       ctx.stroke();
 
       // Shadow tip dot
-      ctx.fillStyle = 'rgba(200,180,140,0.7)';
+      ctx.fillStyle = '#111';
       ctx.beginPath();
       ctx.arc(shadTipX, shadTipY, 3, 0, TAU);
       ctx.fill();
@@ -3696,12 +3706,12 @@ function lerp(a, b, t) { return a + (b - a) * t; }
     animId = requestAnimationFrame(animate);
   }
 
-  latSlider.addEventListener('input', draw);
-  daySlider.addEventListener('input', draw);
+  latSlider.addEventListener('input', function() { shadowTrail = []; draw(); });
+  daySlider.addEventListener('input', function() { shadowTrail = []; draw(); });
   playBtn.addEventListener('click', function() {
     playing = !playing;
     playBtn.textContent = playing ? '⏸ 일시정지' : '▶ 재생';
-    if (playing) animate();
+    if (playing) { shadowTrail = []; animate(); }
   });
 
   draw();
