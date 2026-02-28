@@ -434,7 +434,7 @@ ch6 = '''<div class="chapter" id="ch6">
 <p>아래 시뮬레이션은 일식과 월식의 기하학적 조건을 보여줍니다. 달의 궤도 경사각 슬라이더를 조절하여, 경사각이 0°일 때(매달 식 발생)와 5°일 때(대부분 식 불발)의 차이를 비교해보세요.</p>
 
 <div class="sim-container">
-  <canvas id="eclipseCanvas" width="700" height="300"></canvas>
+  <canvas id="eclipseCanvas" width="700" height="340"></canvas>
   <div class="sim-controls">
     <label>유형: <select id="eclipseType">
       <option value="solar">일식 (Solar Eclipse)</option>

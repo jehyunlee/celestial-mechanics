@@ -885,7 +885,7 @@ footer { background: var(--navy); color: #aac; padding: 24px 44px;
 <p>아래 시뮬레이션은 일식과 월식의 기하학적 조건을 보여줍니다. 달의 궤도 경사각 슬라이더를 조절하여, 경사각이 0°일 때(매달 식 발생)와 5°일 때(대부분 식 불발)의 차이를 비교해보세요.</p>
 
 <div class="sim-container">
-  <canvas id="eclipseCanvas" width="700" height="300"></canvas>
+  <canvas id="eclipseCanvas" width="700" height="340"></canvas>
   <div class="sim-controls">
     <label>유형: <select id="eclipseType">
       <option value="solar">일식 (Solar Eclipse)</option>
@@ -1720,6 +1720,107 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       const sunX = 80, moonX = W * 0.52, earthX = W - 100;
       const sunR = 40, moonR = 12, earthR = 18;
 
+      // ── Sunlight rays (diverging from sun surface) ──
+      // Rays that pass ABOVE and BELOW the moon → reach Earth
+      ctx.lineWidth = 1;
+      const rayCount = 14;
+      for (let i = 0; i < rayCount; i++) {
+        const srcY = cy + sunR * (2 * i / (rayCount - 1) - 1) * 0.95;
+        // Ray extends to far right
+        const dx = W - sunX - sunR;
+        const slope = (srcY - cy) / (sunX + sunR);
+        const endY = srcY + slope * dx * 0.5;
+
+        // Check if ray is blocked by moon
+        const tMoon = (moonX - sunX - sunR) / dx;
+        const rayYatMoon = srcY + (endY - srcY) * tMoon;
+        const blocked = Math.abs(rayYatMoon - (cy + moonOffset)) < moonR * 0.9;
+
+        if (blocked) {
+          // Draw ray only up to moon, dimmer
+          ctx.strokeStyle = 'rgba(255,220,80,0.12)';
+          ctx.beginPath();
+          ctx.moveTo(sunX + sunR, srcY);
+          ctx.lineTo(moonX - moonR, rayYatMoon);
+          ctx.stroke();
+        } else {
+          // Full ray passes through to earth and beyond
+          ctx.strokeStyle = 'rgba(255,220,80,0.15)';
+          ctx.beginPath();
+          ctx.moveTo(sunX + sunR, srcY);
+          ctx.lineTo(W, endY);
+          ctx.stroke();
+        }
+      }
+
+      // ── Shadow cones from moon edges (tangent lines) ──
+      // Penumbra: outer tangent lines (sun edge → moon opposite edge → earth)
+      // Umbra: inner tangent lines (sun edge → moon same edge → converge)
+      if (Math.abs(moonOffset) < 30) {
+        const moonCy = cy + moonOffset;
+
+        // Penumbra boundary lines (top-sun-edge → bottom-moon-edge → beyond)
+        ctx.strokeStyle = 'rgba(100,100,200,0.3)'; ctx.lineWidth = 0.8;
+        ctx.setLineDash([5, 3]);
+        // Upper penumbra edge
+        const pSlope1 = ((moonCy - moonR) - (cy - sunR)) / (moonX - sunX);
+        const pEndY1 = (moonCy - moonR) + pSlope1 * (W - moonX);
+        ctx.beginPath(); ctx.moveTo(sunX, cy - sunR);
+        ctx.lineTo(W, pEndY1); ctx.stroke();
+        // Lower penumbra edge
+        const pSlope2 = ((moonCy + moonR) - (cy + sunR)) / (moonX - sunX);
+        const pEndY2 = (moonCy + moonR) + pSlope2 * (W - moonX);
+        ctx.beginPath(); ctx.moveTo(sunX, cy + sunR);
+        ctx.lineTo(W, pEndY2); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Penumbra fill
+        ctx.fillStyle = 'rgba(30,30,80,0.2)';
+        ctx.beginPath();
+        ctx.moveTo(moonX, moonCy - moonR);
+        ctx.lineTo(W, pEndY1);
+        ctx.lineTo(W, pEndY2);
+        ctx.lineTo(moonX, moonCy + moonR);
+        ctx.fill();
+
+        // Umbra boundary lines (top-sun-edge → top-moon-edge → converge)
+        ctx.strokeStyle = 'rgba(200,100,100,0.4)'; ctx.lineWidth = 0.8;
+        ctx.setLineDash([3, 3]);
+        const uSlope1 = ((moonCy - moonR) - (cy + sunR)) / (moonX - sunX);
+        const uSlope2 = ((moonCy + moonR) - (cy - sunR)) / (moonX - sunX);
+        // Convergence point
+        const convX = moonX + (moonCy - moonR - (cy + sunR + uSlope1 * moonX)) / (-uSlope1);
+        const convXreal = moonX - (moonCy - moonR - (moonCy + moonR)) / (uSlope1 - uSlope2);
+        // Upper umbra edge
+        ctx.beginPath(); ctx.moveTo(sunX, cy + sunR);
+        ctx.lineTo(moonX, moonCy - moonR);
+        const uEndY1 = (moonCy - moonR) + uSlope1 * (earthX + 50 - moonX);
+        ctx.lineTo(earthX + 50, uEndY1); ctx.stroke();
+        // Lower umbra edge
+        ctx.beginPath(); ctx.moveTo(sunX, cy - sunR);
+        ctx.lineTo(moonX, moonCy + moonR);
+        const uEndY2 = (moonCy + moonR) + uSlope2 * (earthX + 50 - moonX);
+        ctx.lineTo(earthX + 50, uEndY2); ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Umbra fill (darker cone)
+        ctx.fillStyle = 'rgba(0,0,20,0.45)';
+        ctx.beginPath();
+        ctx.moveTo(moonX, moonCy - moonR);
+        ctx.lineTo(earthX + 50, uEndY1);
+        ctx.lineTo(earthX + 50, uEndY2);
+        ctx.lineTo(moonX, moonCy + moonR);
+        ctx.fill();
+
+        // Labels for shadow regions
+        ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'center';
+        ctx.fillStyle = 'rgba(200,150,150,0.6)';
+        ctx.fillText('본영 (Umbra)', (moonX + earthX) / 2, moonCy - 2);
+        ctx.fillStyle = 'rgba(150,150,200,0.6)';
+        const penLabelY = Math.min(moonCy - moonR - 12, cy - 30);
+        ctx.fillText('반영 (Penumbra)', (moonX + earthX) / 2, penLabelY);
+      }
+
       // Sun
       const sg = ctx.createRadialGradient(sunX, cy, 5, sunX, cy, sunR + 8);
       sg.addColorStop(0, '#fff7a0'); sg.addColorStop(0.7, '#ffcc00');
@@ -1729,44 +1830,20 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       ctx.fillStyle = '#ffdd44';
       ctx.beginPath(); ctx.arc(sunX, cy, sunR, 0, TAU); ctx.fill();
 
-      // Light rays (cone)
-      ctx.strokeStyle = 'rgba(255,200,50,0.08)'; ctx.lineWidth = 1;
-      for (let i = -8; i <= 8; i++) {
-        ctx.beginPath();
-        ctx.moveTo(sunX + sunR, cy + i * 4);
-        ctx.lineTo(earthX, cy + i * 20);
-        ctx.stroke();
-      }
-
-      // Shadow cone (umbra)
-      if (Math.abs(moonOffset) < 20) {
-        ctx.fillStyle = 'rgba(0,0,30,0.3)';
-        ctx.beginPath();
-        ctx.moveTo(moonX, cy + moonOffset - moonR);
-        ctx.lineTo(earthX + 30, cy + moonOffset - moonR * 2.5);
-        ctx.lineTo(earthX + 30, cy + moonOffset + moonR * 2.5);
-        ctx.lineTo(moonX, cy + moonOffset + moonR);
-        ctx.fill();
-
-        // Umbra (darker center)
-        ctx.fillStyle = 'rgba(0,0,20,0.5)';
-        ctx.beginPath();
-        ctx.moveTo(moonX, cy + moonOffset - moonR * 0.5);
-        ctx.lineTo(earthX + 10, cy + moonOffset - moonR * 0.8);
-        ctx.lineTo(earthX + 10, cy + moonOffset + moonR * 0.8);
-        ctx.lineTo(moonX, cy + moonOffset + moonR * 0.5);
-        ctx.fill();
-      }
-
       // Moon
-      ctx.fillStyle = '#888';
+      ctx.fillStyle = '#666';
       ctx.beginPath(); ctx.arc(moonX, cy + moonOffset, moonR, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#888';
+      ctx.beginPath(); ctx.arc(moonX, cy + moonOffset, moonR, -Math.PI/2 - 0.5, Math.PI/2 + 0.5, true); ctx.fill();
 
       // Earth
       ctx.fillStyle = '#4488cc';
       ctx.beginPath(); ctx.arc(earthX, cy, earthR, 0, TAU); ctx.fill();
       ctx.fillStyle = '#66bb88';
       ctx.beginPath(); ctx.arc(earthX, cy - 2, 11, 0.2, 2.2); ctx.fill();
+      // Atmosphere glow
+      ctx.strokeStyle = 'rgba(100,180,255,0.3)'; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(earthX, cy, earthR + 2, 0, TAU); ctx.stroke();
 
       // Ecliptic line
       ctx.strokeStyle = 'rgba(255,100,100,0.3)'; ctx.lineWidth = 0.5;
@@ -1787,8 +1864,112 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 
     } else {
       // Lunar Eclipse: Sun -- Earth -- Moon (side view)
-      const sunX = 80, earthX = W * 0.48, moonX = W - 100;
+      const sunX = 80, earthX = W * 0.45, moonX = W - 90;
       const sunR = 40, earthR = 18, moonR = 10;
+      const atmoR = earthR + 4; // atmosphere radius
+
+      // ── Sunlight rays ──
+      const rayCount = 18;
+      ctx.lineWidth = 1;
+      for (let i = 0; i < rayCount; i++) {
+        const srcY = cy + sunR * (2 * i / (rayCount - 1) - 1) * 0.95;
+        const dx = W - sunX - sunR;
+        const slope = (srcY - cy) * 0.3 / dx;
+        const endY = srcY + slope * dx;
+
+        // Check if ray hits Earth
+        const tEarth = (earthX - sunX - sunR) / dx;
+        const rayYatEarth = srcY + (endY - srcY) * tEarth;
+        const hitsCore = Math.abs(rayYatEarth - cy) < earthR;
+        const hitsAtmo = Math.abs(rayYatEarth - cy) < atmoR;
+
+        if (hitsCore) {
+          // Ray blocked by solid Earth → draw only to Earth
+          ctx.strokeStyle = 'rgba(255,220,80,0.12)';
+          ctx.beginPath();
+          ctx.moveTo(sunX + sunR, srcY);
+          ctx.lineTo(earthX - earthR, rayYatEarth);
+          ctx.stroke();
+        } else if (hitsAtmo) {
+          // Ray passes through atmosphere → refracted, turns reddish
+          ctx.strokeStyle = 'rgba(255,220,80,0.15)';
+          ctx.beginPath();
+          ctx.moveTo(sunX + sunR, srcY);
+          ctx.lineTo(earthX - atmoR, rayYatEarth);
+          ctx.stroke();
+          // Refracted red ray bends into shadow
+          ctx.strokeStyle = 'rgba(220,80,40,0.3)';
+          ctx.beginPath();
+          ctx.moveTo(earthX + atmoR, rayYatEarth);
+          const bendSign = rayYatEarth > cy ? -1 : 1;
+          ctx.quadraticCurveTo(
+            (earthX + moonX) / 2, rayYatEarth + bendSign * 8,
+            moonX, cy + moonOffset
+          );
+          ctx.stroke();
+        } else {
+          // Ray passes freely
+          ctx.strokeStyle = 'rgba(255,220,80,0.13)';
+          ctx.beginPath();
+          ctx.moveTo(sunX + sunR, srcY);
+          ctx.lineTo(W, endY);
+          ctx.stroke();
+        }
+      }
+
+      // ── Shadow cones from Earth edges ──
+      // Penumbra edges (sun edge → earth opposite edge → diverge)
+      ctx.strokeStyle = 'rgba(100,100,200,0.35)'; ctx.lineWidth = 0.8;
+      ctx.setLineDash([5, 3]);
+      // Upper penumbra: from sun bottom → earth top → beyond
+      const pSlope1 = ((cy - earthR) - (cy + sunR)) / (earthX - sunX);
+      const pEndY1 = (cy - earthR) + pSlope1 * (W - earthX);
+      ctx.beginPath(); ctx.moveTo(sunX, cy + sunR);
+      ctx.lineTo(earthX, cy - earthR); ctx.lineTo(W, pEndY1); ctx.stroke();
+      // Lower penumbra: from sun top → earth bottom → beyond
+      const pSlope2 = ((cy + earthR) - (cy - sunR)) / (earthX - sunX);
+      const pEndY2 = (cy + earthR) + pSlope2 * (W - earthX);
+      ctx.beginPath(); ctx.moveTo(sunX, cy - sunR);
+      ctx.lineTo(earthX, cy + earthR); ctx.lineTo(W, pEndY2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Penumbra fill
+      ctx.fillStyle = 'rgba(30,30,80,0.15)';
+      ctx.beginPath();
+      ctx.moveTo(earthX, cy - earthR);
+      ctx.lineTo(W, pEndY1);
+      ctx.lineTo(W, pEndY2);
+      ctx.lineTo(earthX, cy + earthR);
+      ctx.fill();
+
+      // Umbra edges (sun top → earth top → converge beyond earth)
+      ctx.strokeStyle = 'rgba(200,100,100,0.45)'; ctx.lineWidth = 0.8;
+      ctx.setLineDash([3, 3]);
+      const uSlope1 = ((cy - earthR) - (cy - sunR)) / (earthX - sunX);
+      const uEndY1 = (cy - earthR) + uSlope1 * (W - earthX);
+      ctx.beginPath(); ctx.moveTo(sunX, cy - sunR);
+      ctx.lineTo(earthX, cy - earthR); ctx.lineTo(W, uEndY1); ctx.stroke();
+      const uSlope2 = ((cy + earthR) - (cy + sunR)) / (earthX - sunX);
+      const uEndY2 = (cy + earthR) + uSlope2 * (W - earthX);
+      ctx.beginPath(); ctx.moveTo(sunX, cy + sunR);
+      ctx.lineTo(earthX, cy + earthR); ctx.lineTo(W, uEndY2); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Umbra fill
+      ctx.fillStyle = 'rgba(0,0,20,0.35)';
+      ctx.beginPath();
+      ctx.moveTo(earthX, cy - earthR);
+      ctx.lineTo(W, uEndY1);
+      ctx.lineTo(W, uEndY2);
+      ctx.lineTo(earthX, cy + earthR);
+      ctx.fill();
+
+      // Shadow region labels
+      ctx.font = '9px Noto Sans KR'; ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(200,150,150,0.6)';
+      ctx.fillText('본영 (Umbra)', (earthX + moonX) / 2, cy - 3);
+      ctx.fillStyle = 'rgba(150,150,200,0.6)';
+      ctx.fillText('반영 (Penumbra)', (earthX + moonX) / 2, cy - earthR - 14);
 
       // Sun
       const sg = ctx.createRadialGradient(sunX, cy, 5, sunX, cy, sunR + 8);
@@ -1799,39 +1980,35 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       ctx.fillStyle = '#ffdd44';
       ctx.beginPath(); ctx.arc(sunX, cy, sunR, 0, TAU); ctx.fill();
 
-      // Earth's shadow cone
-      ctx.fillStyle = 'rgba(0,0,30,0.25)';
-      ctx.beginPath();
-      ctx.moveTo(earthX, cy - earthR);
-      ctx.lineTo(W, cy - earthR * 3);
-      ctx.lineTo(W, cy + earthR * 3);
-      ctx.lineTo(earthX, cy + earthR);
-      ctx.fill();
-
-      // Umbra
-      ctx.fillStyle = 'rgba(0,0,20,0.4)';
-      ctx.beginPath();
-      ctx.moveTo(earthX, cy - earthR * 0.6);
-      ctx.lineTo(W - 30, cy - earthR * 1.5);
-      ctx.lineTo(W - 30, cy + earthR * 1.5);
-      ctx.lineTo(earthX, cy + earthR * 0.6);
-      ctx.fill();
-
       // Earth
       ctx.fillStyle = '#4488cc';
       ctx.beginPath(); ctx.arc(earthX, cy, earthR, 0, TAU); ctx.fill();
       ctx.fillStyle = '#66bb88';
       ctx.beginPath(); ctx.arc(earthX, cy - 2, 11, 0.2, 2.2); ctx.fill();
+      // Atmosphere ring (key for red refraction)
+      const atmoGrad = ctx.createRadialGradient(earthX, cy, earthR, earthX, cy, atmoR + 2);
+      atmoGrad.addColorStop(0, 'rgba(100,180,255,0.25)');
+      atmoGrad.addColorStop(0.5, 'rgba(100,180,255,0.15)');
+      atmoGrad.addColorStop(1, 'rgba(100,180,255,0)');
+      ctx.fillStyle = atmoGrad;
+      ctx.beginPath(); ctx.arc(earthX, cy, atmoR + 2, 0, TAU); ctx.fill();
+      // Atmosphere label
+      ctx.fillStyle = 'rgba(100,200,255,0.5)'; ctx.font = '8px Noto Sans KR';
+      ctx.fillText('대기', earthX, cy + earthR + 12);
 
       // Moon
       const moonY = cy + moonOffset;
       ctx.fillStyle = '#ccc';
       ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, TAU); ctx.fill();
 
-      // If in shadow, darken moon
+      // If in shadow, darken moon and apply red tint (blood moon)
       if (Math.abs(moonOffset) < earthR * 1.5) {
         const shadowFactor = 1 - Math.abs(moonOffset) / (earthR * 1.5);
-        ctx.fillStyle = `rgba(180,60,30,${shadowFactor * 0.7})`;
+        // Base shadow
+        ctx.fillStyle = `rgba(0,0,10,${shadowFactor * 0.6})`;
+        ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, TAU); ctx.fill();
+        // Red tint from refracted light
+        ctx.fillStyle = `rgba(180,50,20,${shadowFactor * 0.55})`;
         ctx.beginPath(); ctx.arc(moonX, moonY, moonR, 0, TAU); ctx.fill();
       }
 
@@ -1844,11 +2021,17 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       // Labels
       ctx.fillStyle = '#fff'; ctx.font = '12px Noto Sans KR'; ctx.textAlign = 'center';
       ctx.fillText('태양', sunX, cy + sunR + 18);
-      ctx.fillText('지구', earthX, cy + earthR + 18);
+      ctx.fillText('지구', earthX, cy + earthR + 22);
       ctx.fillText('달', moonX, moonY + moonR + 18);
+      ctx.fillStyle = '#ff6666'; ctx.font = '10px Noto Sans KR';
+      ctx.fillText('황도면', W - 40, cy - 6);
+
+      // Info about red refraction
+      ctx.fillStyle = 'rgba(220,100,60,0.6)'; ctx.font = '8px Noto Sans KR';
+      ctx.fillText('대기 굴절 → 붉은빛', (earthX + moonX) / 2, cy + earthR + 22);
 
       const eclipseOccurs = Math.abs(moonOffset) < earthR * 1.5;
-      if (info) info.textContent = `월식 (Lunar Eclipse) | 달 궤도 경사: ${inclination.toFixed(1)}° | ${eclipseOccurs ? '✓ 월식 발생! (달이 붉게 물듦)' : '✗ 월식 불발'}`;
+      if (info) info.textContent = `월식 (Lunar Eclipse) | 달 궤도 경사: ${inclination.toFixed(1)}° | ${eclipseOccurs ? '✓ 월식 발생! (대기 굴절로 달이 붉게 물듦)' : '✗ 월식 불발'}`;
     }
   }
 
