@@ -380,6 +380,26 @@ ch4 = '''<div class="chapter" id="ch4">
 <p>위도를 -66.5°(남극권) 이하로 낮추면 동지 때 극야(24시간 밤)를, 66.5°N 이상에서는 하지 때 백야(24시간 낮)를 확인할 수 있습니다.</p>
 </div>
 
+<p>아래 <strong>천구 시뮬레이션</strong>에서는 같은 원리를 관측자의 시점으로 확인할 수 있습니다. 남쪽에서 비스듬히 바라본 천구 위에 태양의 일주 궤적(diurnal path)이 표시되며, 위도와 날짜에 따라 태양이 하늘을 가로지르는 호의 높이와 길이가 변합니다.</p>
+
+<div class="sim-container">
+  <canvas id="celestialSphereCanvas" width="700" height="400"></canvas>
+  <div class="sim-controls">
+    <label>위도: <input type="range" id="csLatSlider" min="-66.5" max="90" step="0.5" value="37.5"> <span id="csLatVal">37.5°N</span></label>
+    <label>날짜: <input type="range" id="csDaySlider" min="0" max="364" step="1" value="172"> <span id="csDayVal">6월 22일</span></label>
+    <button id="csPlayBtn">⏸ 일시정지</button>
+  </div>
+  <div class="sim-info" id="csInfo"></div>
+</div>
+
+<div class="info-box">
+<div class="box-title">[천구 시뮬레이션 관찰 포인트]</div>
+<p><strong>서울(37.5°N) 하지</strong>: 태양이 높은 호를 그리며 동북→남→서북으로 이동, 긴 낮</p>
+<p><strong>서울(37.5°N) 동지</strong>: 태양이 낮은 호를 그리며 동남→남→서남으로 이동, 짧은 낮</p>
+<p><strong>적도(0°) 춘분</strong>: 태양이 정동에서 떠서 천정을 지나 정서로 짐, 12시간 낮</p>
+<p><strong>고위도(66.5°N) 하지</strong>: 태양이 지평선 아래로 내려가지 않는 백야</p>
+</div>
+
 <h2 class="section-title" id="sec4-2">4.2 연중 일사량 시뮬레이션: 서울 · 자카르타 · 런던</h2>
 
 <p>천문학적 일사량(clear-sky irradiance)은 위도와 태양 고도각만으로 계산되지만, 실제로 지표면에 도달하는 일사량은 <strong>기상 조건</strong>에 크게 좌우됩니다. 구름, 장마, 태풍, 안개 등이 태양복사를 산란·흡수하여 실질 일사량을 감소시킵니다.</p>

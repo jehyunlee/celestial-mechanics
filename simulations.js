@@ -2089,6 +2089,339 @@ function lerp(a, b, t) { return a + (b - a) * t; }
 })();
 
 // ═══════════════════════════════════════════════════════════
+// 9. Celestial Sphere — Sun's Diurnal Path (Oblique View)
+// ═══════════════════════════════════════════════════════════
+(function() {
+  const canvas = document.getElementById('celestialSphereCanvas');
+  if (!canvas) return;
+  const ctx = canvas.getContext('2d');
+  const W = canvas.width, H = canvas.height;
+  const latSlider = document.getElementById('csLatSlider');
+  const daySlider = document.getElementById('csDaySlider');
+  const latVal = document.getElementById('csLatVal');
+  const dayVal = document.getElementById('csDayVal');
+  const playBtn = document.getElementById('csPlayBtn');
+  const info = document.getElementById('csInfo');
+
+  const OBLIQ = 23.44;
+  // View: from south at ~28° elevation
+  const viewElev = 28 * DEG;
+  const cosV = Math.cos(viewElev), sinV = Math.sin(viewElev);
+  const R = Math.min(W, H) * 0.38; // sphere radius in pixels
+  const cx = W * 0.5, cy = H * 0.55;
+
+  let hourAngle = -180; // degrees, -180=midnight, 0=noon, +180=midnight
+  let playing = true;
+  let animId = null;
+
+  function solarDecl(day) {
+    return OBLIQ * Math.sin((day - 81) * TAU / 365);
+  }
+  function dayName(d) {
+    const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+    const dim = [31,28,31,30,31,30,31,31,30,31,30,31];
+    let rem = d;
+    for (let m = 0; m < 12; m++) {
+      if (rem < dim[m]) return months[m] + ' ' + (rem + 1) + '일';
+      rem -= dim[m];
+    }
+    return '12월 31일';
+  }
+
+  // Project 3D point (azimuth A from north CW, altitude α) onto 2D canvas
+  // 3D: x=east, y=north, z=up
+  function project(azDeg, altDeg) {
+    const az = azDeg * DEG, alt = altDeg * DEG;
+    const x3 = Math.cos(alt) * Math.sin(az);   // east
+    const y3 = Math.cos(alt) * Math.cos(az);   // north
+    const z3 = Math.sin(alt);                    // up
+    // Rotate around x-axis by viewElev (tilt forward)
+    const y3r = y3 * cosV - z3 * sinV;
+    const z3r = y3 * sinV + z3 * cosV;
+    // Parallel projection: screen_x = x3 (east=right), screen_y = -z3r (up=screen up)
+    return {
+      x: cx + x3 * R,
+      y: cy - z3r * R,
+      depth: y3r // for visibility (positive = behind = farther from viewer)
+    };
+  }
+
+  // Sun position at given hour angle
+  function sunPos(lat, decl, haDeg) {
+    const phi = lat * DEG, delta = decl * DEG, ha = haDeg * DEG;
+    const sinAlt = Math.sin(phi) * Math.sin(delta) + Math.cos(phi) * Math.cos(delta) * Math.cos(ha);
+    const alt = Math.asin(Math.max(-1, Math.min(1, sinAlt)));
+    const cosAz = (Math.sin(delta) - Math.sin(phi) * sinAlt) / (Math.cos(phi) * Math.cos(alt) + 1e-10);
+    let az = Math.acos(Math.max(-1, Math.min(1, cosAz)));
+    if (Math.sin(ha) > 0) az = TAU - az; // afternoon = west
+    return { azDeg: az / DEG, altDeg: alt / DEG };
+  }
+
+  function sunriseHA(lat, decl) {
+    const phi = lat * DEG, delta = decl * DEG;
+    const cosH = -Math.tan(phi) * Math.tan(delta);
+    if (cosH <= -1) return 180; // never sets (midnight sun)
+    if (cosH >= 1) return 0;   // never rises (polar night)
+    return Math.acos(cosH) / DEG;
+  }
+
+  function draw() {
+    const lat = parseFloat(latSlider.value);
+    const day = parseInt(daySlider.value);
+    latVal.textContent = (lat >= 0 ? lat.toFixed(1) + '°N' : (-lat).toFixed(1) + '°S');
+    dayVal.textContent = dayName(day);
+
+    const decl = solarDecl(day);
+    const haMax = sunriseHA(lat, decl);
+
+    ctx.clearRect(0, 0, W, H);
+
+    // Sky gradient
+    const skyGrad = ctx.createLinearGradient(0, 0, 0, H);
+    skyGrad.addColorStop(0, '#0a1530');
+    skyGrad.addColorStop(0.5, '#1a2a50');
+    skyGrad.addColorStop(1, '#2a3a60');
+    ctx.fillStyle = skyGrad;
+    ctx.fillRect(0, 0, W, H);
+
+    // ── Horizon ellipse ──
+    const horizRx = R;
+    const horizRy = R * sinV;
+    // Ground fill below horizon
+    ctx.fillStyle = '#1a2a15';
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, horizRx, horizRy, 0, 0, Math.PI);
+    ctx.lineTo(cx + horizRx, H);
+    ctx.lineTo(cx - horizRx, H);
+    ctx.closePath();
+    ctx.fill();
+
+    // Horizon line
+    ctx.strokeStyle = 'rgba(100,180,100,0.5)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.ellipse(cx, cy, horizRx, horizRy, 0, 0, TAU);
+    ctx.stroke();
+
+    // ── Cardinal directions ──
+    const dirs = [
+      { az: 0, label: 'N(북)', color: '#ff6666' },
+      { az: 90, label: 'E(동)', color: '#88bbcc' },
+      { az: 180, label: 'S(남)', color: '#88bbcc' },
+      { az: 270, label: 'W(서)', color: '#88bbcc' }
+    ];
+    for (const d of dirs) {
+      const p = project(d.az, 0);
+      ctx.fillStyle = d.color;
+      ctx.font = 'bold 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(d.label, p.x, p.y + 16);
+      // Small tick mark
+      ctx.strokeStyle = d.color;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - 4);
+      ctx.lineTo(p.x, p.y + 4);
+      ctx.stroke();
+    }
+
+    // ── Celestial meridian arc (N-zenith-S) ──
+    ctx.strokeStyle = 'rgba(150,150,200,0.2)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 4]);
+    ctx.beginPath();
+    let first = true;
+    for (let alt = -5; alt <= 90; alt += 2) {
+      const p = project(0, alt); // north meridian
+      if (first) { ctx.moveTo(p.x, p.y); first = false; }
+      else ctx.lineTo(p.x, p.y);
+    }
+    for (let alt = 90; alt >= -5; alt -= 2) {
+      const p = project(180, alt); // south meridian
+      ctx.lineTo(p.x, p.y);
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Zenith label
+    const zen = project(0, 90);
+    ctx.fillStyle = 'rgba(200,200,255,0.5)';
+    ctx.font = '10px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('천정(Z)', zen.x, zen.y - 8);
+
+    // ── Altitude reference arcs (30°, 60°) ──
+    ctx.strokeStyle = 'rgba(150,180,220,0.12)';
+    ctx.lineWidth = 0.5;
+    ctx.setLineDash([2, 4]);
+    for (const refAlt of [30, 60]) {
+      ctx.beginPath();
+      first = true;
+      for (let az = 0; az <= 360; az += 3) {
+        const p = project(az, refAlt);
+        if (first) { ctx.moveTo(p.x, p.y); first = false; }
+        else ctx.lineTo(p.x, p.y);
+      }
+      ctx.stroke();
+      const lp = project(90, refAlt);
+      ctx.fillStyle = 'rgba(150,180,220,0.3)';
+      ctx.font = '9px sans-serif';
+      ctx.fillText(refAlt + '°', lp.x + 10, lp.y);
+    }
+    ctx.setLineDash([]);
+
+    // ── Sun's diurnal path (full arc, dashed below horizon) ──
+    const pathPts = [];
+    for (let ha = -180; ha <= 180; ha += 1) {
+      const sp = sunPos(lat, decl, ha);
+      const pp = project(sp.azDeg, sp.altDeg);
+      pathPts.push({ ha, alt: sp.altDeg, px: pp.x, py: pp.y, depth: pp.depth });
+    }
+
+    // Below-horizon portion (dashed)
+    ctx.strokeStyle = 'rgba(255,200,80,0.15)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 5]);
+    ctx.beginPath();
+    first = true;
+    for (const pt of pathPts) {
+      if (pt.alt < 0) {
+        if (first) { ctx.moveTo(pt.px, pt.py); first = false; }
+        else ctx.lineTo(pt.px, pt.py);
+      } else {
+        first = true;
+      }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Above-horizon portion (solid, glowing)
+    ctx.strokeStyle = 'rgba(255,200,80,0.6)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    first = true;
+    for (const pt of pathPts) {
+      if (pt.alt >= 0) {
+        if (first) { ctx.moveTo(pt.px, pt.py); first = false; }
+        else ctx.lineTo(pt.px, pt.py);
+      } else {
+        first = true;
+      }
+    }
+    ctx.stroke();
+
+    // Sunrise/sunset markers
+    if (haMax > 0 && haMax < 180) {
+      const rise = sunPos(lat, decl, -haMax);
+      const set = sunPos(lat, decl, haMax);
+      const rp = project(rise.azDeg, Math.max(rise.altDeg, 0));
+      const sp2 = project(set.azDeg, Math.max(set.altDeg, 0));
+      // Rise marker
+      ctx.fillStyle = '#ff8844';
+      ctx.font = 'bold 10px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('일출', rp.x, rp.y + 14);
+      // Set marker
+      ctx.fillStyle = '#cc6644';
+      ctx.fillText('일몰', sp2.x, sp2.y + 14);
+    }
+
+    // ── Sun position (current hour angle) ──
+    const sunNow = sunPos(lat, decl, hourAngle);
+    const sunProj = project(sunNow.azDeg, sunNow.altDeg);
+    const isAbove = sunNow.altDeg >= 0;
+
+    if (isAbove) {
+      // Sun glow
+      const sGrad = ctx.createRadialGradient(sunProj.x, sunProj.y, 3, sunProj.x, sunProj.y, 25);
+      sGrad.addColorStop(0, 'rgba(255,240,150,0.9)');
+      sGrad.addColorStop(0.4, 'rgba(255,200,50,0.3)');
+      sGrad.addColorStop(1, 'rgba(255,200,50,0)');
+      ctx.fillStyle = sGrad;
+      ctx.beginPath(); ctx.arc(sunProj.x, sunProj.y, 25, 0, TAU); ctx.fill();
+      ctx.fillStyle = '#fff8d0';
+      ctx.beginPath(); ctx.arc(sunProj.x, sunProj.y, 7, 0, TAU); ctx.fill();
+    } else {
+      // Below horizon: dim indicator
+      ctx.fillStyle = 'rgba(255,200,100,0.3)';
+      ctx.beginPath(); ctx.arc(sunProj.x, sunProj.y, 5, 0, TAU); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,200,100,0.2)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(sunProj.x, sunProj.y, 5, 0, TAU); ctx.stroke();
+    }
+
+    // ── Meridian transit line (noon line from south horizon to zenith) ──
+    const noonSun = sunPos(lat, decl, 0);
+    if (noonSun.altDeg > 0) {
+      const noonP = project(noonSun.azDeg, noonSun.altDeg);
+      ctx.strokeStyle = 'rgba(255,220,100,0.2)';
+      ctx.lineWidth = 1;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(noonP.x, cy); // horizon at south
+      ctx.lineTo(noonP.x, noonP.y);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Max altitude label
+      ctx.fillStyle = 'rgba(255,220,100,0.6)';
+      ctx.font = '10px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.fillText('남중고도 ' + noonSun.altDeg.toFixed(1) + '°', noonP.x + 10, noonP.y - 2);
+    }
+
+    // ── Time info ──
+    // Convert hour angle to clock time (HA=0 → 12:00, HA=-90 → 06:00)
+    const clockH = ((hourAngle + 180) / 15 + 0) % 24;
+    const hh = Math.floor(clockH);
+    const mm = Math.floor((clockH - hh) * 60);
+    const timeStr = String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+    const dlHours = (2 * haMax / 15);
+
+    ctx.fillStyle = '#ddd';
+    ctx.font = 'bold 14px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('⏱ ' + timeStr, 14, 24);
+
+    ctx.fillStyle = isAbove ? '#ffdd88' : '#667';
+    ctx.font = '12px sans-serif';
+    ctx.fillText(isAbove ? '☀ 낮' : '🌙 밤', 14, 42);
+
+    // Alt/Az display
+    ctx.fillStyle = 'rgba(200,210,230,0.7)';
+    ctx.font = '11px sans-serif';
+    ctx.textAlign = 'right';
+    ctx.fillText('고도: ' + sunNow.altDeg.toFixed(1) + '°', W - 12, 24);
+    ctx.fillText('방위: ' + sunNow.azDeg.toFixed(1) + '°', W - 12, 40);
+
+    // Info bar
+    info.innerHTML =
+      '<strong>태양 적위(δ):</strong> ' + decl.toFixed(1) + '° | ' +
+      '<strong>남중고도:</strong> ' + noonSun.altDeg.toFixed(1) + '° | ' +
+      '<strong>낮 길이:</strong> ' + dlHours.toFixed(1) + '시간 | ' +
+      '<strong>시각:</strong> ' + timeStr;
+  }
+
+  function animate() {
+    if (!playing) return;
+    hourAngle += 0.8; // speed
+    if (hourAngle > 180) hourAngle -= 360;
+    draw();
+    animId = requestAnimationFrame(animate);
+  }
+
+  latSlider.addEventListener('input', draw);
+  daySlider.addEventListener('input', draw);
+  playBtn.addEventListener('click', function() {
+    playing = !playing;
+    playBtn.textContent = playing ? '⏸ 일시정지' : '▶ 재생';
+    if (playing) animate();
+  });
+
+  draw();
+  animate();
+})();
+
+// ═══════════════════════════════════════════════════════════
 // KaTeX auto-render
 // ═══════════════════════════════════════════════════════════
 document.addEventListener('DOMContentLoaded', function() {
