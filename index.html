@@ -1582,9 +1582,9 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       // Left limb (semicircle): top → bottom through LEFT
       ctx.arc(moonViewX, moonViewY, moonViewR, -Math.PI/2, Math.PI/2, true);
       // Terminator (half-ellipse): bottom → top
-      //   c > 0 (crescent): terminator right of center → go CW through right
-      //   c < 0 (gibbous): terminator left of center → go CCW through left
-      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, Math.PI/2, -Math.PI/2, c < 0);
+      //   c > 0 (crescent): terminator right of center → CCW (true) through right
+      //   c < 0 (gibbous): terminator left of center → CW (false) through left
+      ctx.ellipse(moonViewX, moonViewY, rx, moonViewR, 0, Math.PI/2, -Math.PI/2, c > 0);
     } else {
       // WANING: dark on right side, lit on left
       // Terminator position for waning: -r*cos(phase*TAU)
