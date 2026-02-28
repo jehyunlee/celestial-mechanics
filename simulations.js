@@ -1705,18 +1705,18 @@ function lerp(a, b, t) { return a + (b - a) * t; }
       ctx.fillStyle = '#fff8d0';
       ctx.beginPath(); ctx.arc(sunArcX, sunArcY, 8, 0, TAU); ctx.fill();
 
-      // Elevation angle arc (from left horizon upward)
+      // Elevation angle arc (small arc from horizon to sun)
       ctx.strokeStyle = '#ffdd66';
       ctx.lineWidth = 2;
       ctx.beginPath();
-      ctx.arc(arcCx, groundY, 40, Math.PI, Math.PI + elevRad, true);
+      ctx.arc(arcCx, groundY, 40, elevRad - Math.PI, -Math.PI, true);
       ctx.stroke();
-      // Angle label (midpoint of arc, above ground)
-      const labelAngle = Math.PI + elevRad / 2;
+      // Angle label (midpoint of arc, above ground to the left)
+      const labelMid = elevRad / 2 - Math.PI;
       ctx.fillStyle = '#ffdd66';
       ctx.font = 'bold 12px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('α=' + elevClamped.toFixed(1) + '°', arcCx + 55 * Math.cos(labelAngle), groundY + 55 * Math.sin(labelAngle));
+      ctx.fillText('α=' + elevClamped.toFixed(1) + '°', arcCx + 55 * Math.cos(labelMid), groundY + 55 * Math.sin(labelMid));
 
       // Line from ground to sun
       ctx.strokeStyle = 'rgba(255,220,100,0.6)';
